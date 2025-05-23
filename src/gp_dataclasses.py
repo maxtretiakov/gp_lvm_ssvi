@@ -1,0 +1,45 @@
+from dataclasses import dataclass
+import torch
+
+@dataclass
+class LR:
+    x: float
+    hyp: float
+
+
+@dataclass
+class InnerIters:
+    start: int
+    after: int
+    switch: int
+
+
+@dataclass
+class Training:
+    batch_size: int
+    total_iters: int
+    inner_iters: InnerIters
+
+
+@dataclass
+class Rho:
+    t0: float
+    k: float
+
+
+@dataclass
+class GPSSVIConfig:
+    device: str
+    debug: bool
+    lr: LR
+    training: Training
+    jitter: float
+    max_exp: float
+    rho: Rho
+    m_inducing: int
+    q_latent: int
+
+    def device_resolved(self) -> torch.device:
+        if self.device == "auto":
+            return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        return torch.device(self.device)
