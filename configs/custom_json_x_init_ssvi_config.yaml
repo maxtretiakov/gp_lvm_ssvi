@@ -18,8 +18,8 @@ training:
 
 # init mu_x, log_sigma2_x
 init:
-  method: default
-  custom_path: ""
+  method: custom
+  custom_path: ./inputs/oil_latents.json
 
 # numerical stability
 jitter:  5e-6
