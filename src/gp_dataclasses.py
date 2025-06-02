@@ -1,5 +1,16 @@
 from dataclasses import dataclass
 import torch
+from typing import Optional
+
+@dataclass
+class InitTrainConfig:
+    """
+    Used in train_gp_lvm_ssvi:
+        - method: "default" | "custom"
+        - custom_path: path to JSON, if method == "custom"
+    """
+    method: str = "default"
+    custom_path: Optional[str] = None
 
 @dataclass
 class LR:
@@ -38,6 +49,7 @@ class GPSSVIConfig:
     rho: Rho
     m_inducing: int
     q_latent: int
+    init: InitTrainConfig
 
     def device_resolved(self) -> torch.device:
         if self.device == "auto":

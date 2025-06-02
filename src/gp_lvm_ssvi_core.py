@@ -57,10 +57,25 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig):
     Q = D
 
     # ----------------------- latent variables ---------------------------
-    Y_std = (Y_np - Y_np.mean(0)) / Y_np.std(0)
-    mu_x = torch.tensor(PCA(Q).fit_transform(Y_std),
-                        device=DEV, requires_grad=True)  # (N, Q)
-    log_s2x = torch.full_like(mu_x, -2.0, requires_grad=True)  # (N, Q)
+    if config.init.method.lower() == "default":
+        print("Default x dist params init used")
+        Y_std = (Y_np - Y_np.mean(0)) / Y_np.std(0)
+        mu_x = torch.tensor(PCA(Q).fit_transform(Y_std),
+                            device=DEV, requires_grad=True)  # (N, Q)
+        log_s2x = torch.full_like(mu_x, -2.0, requires_grad=True)  # (N, Q)
+    else:
+        print("Custom json x dist params init used")
+        if not config.init.custom_path:
+            raise ValueError("init.custom_path was not specified in the config")
+        with open(config.init.custom_path, "r", encoding="utf-8") as f:
+            obj = json.load(f)
+        mu_x = torch.tensor(np.asarray(obj["mu"]),
+                            device=DEV, dtype=torch.float64,
+                            requires_grad=True)
+        log_s2x = torch.tensor(np.asarray(obj["s2"]),
+                               device=DEV, dtype=torch.float64,
+                               requires_grad=True)
+
 
     # ------------------- kernel & inducing inputs -----------------------
     M = 64
