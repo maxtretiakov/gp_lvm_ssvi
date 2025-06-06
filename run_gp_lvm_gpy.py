@@ -7,10 +7,12 @@ $ python run_gp_lvm_gpy.py --config configs/bgplvm_config.yaml
 import argparse, yaml, dataclasses, torch
 from typing import Any, get_type_hints
 from pathlib import Path
+import datetime
 
 from src.gp_lvm_gpy.gpy_dataclasses import BGPLVMConfig
 from src.gp_lvm_gpy.gpy_training import train_bgplvm
 from src.data_loaders.oil_data_loader import load_Y
+from src.oil_dataset_plot_core import load_oil_fractions, plot_oil_dataset_gp_lvm_results
 
 
 def _to_dataclass(cls, src: Any):
@@ -59,3 +61,13 @@ if __name__ == "__main__":
 
     Y = load_Y(cfg.device)
     train_results_dict = train_bgplvm(cfg, Y)
+    
+    PROJECT_ROOT = Path(__file__).resolve().parent
+    oil_data_path = PROJECT_ROOT / "oil_data"
+    RESULTS_ROOT = PROJECT_ROOT / "gp_lvm_gpy_run_results"
+    timestamp = datetime.datetime.now().strftime("%m_%d_%H_%M")
+    save_results_path = RESULTS_ROOT / f"run_results_{timestamp}"
+    
+    fractions = load_oil_fractions(oil_data_path)
+
+    plot_oil_dataset_gp_lvm_results(train_results_dict, fractions, save_results_path)
