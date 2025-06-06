@@ -59,11 +59,13 @@ if __name__ == "__main__":
     cfg = load_config(args.config)
     print(cfg)
 
-    Y, labels = load_Y(cfg.device)
-    train_results_dict = train_bgplvm(cfg, Y)
-    
     PROJECT_ROOT = Path(__file__).resolve().parent
     oil_data_path = PROJECT_ROOT / "oil_data"
+
+    Y, labels = load_Y(oil_data_path, cfg.device)
+    train_results_dict = train_bgplvm(cfg, Y)
+    
+
     RESULTS_ROOT = PROJECT_ROOT / "gp_lvm_gpy_run_results"
     timestamp = datetime.datetime.now().strftime("%m_%d_%H_%M")
     save_results_path = RESULTS_ROOT / f"run_results_{timestamp}"

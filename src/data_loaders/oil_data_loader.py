@@ -4,13 +4,12 @@ import numpy as np
 import torch
 from pathlib import Path
 
-def load_Y(device: str = "auto") -> torch.Tensor:
+def load_Y(root: Path, device: str = "auto") -> torch.Tensor:
     if device == "auto":
         device = "cuda" if torch.cuda.is_available() else "cpu"
     else:
         device = device.lower()
 
-    root = Path(__file__).resolve().parents[1] / "oil_data"
     root.mkdir(exist_ok=True)
 
     data_file = root / "DataTrn.txt"
