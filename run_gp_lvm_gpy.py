@@ -58,4 +58,4 @@ if __name__ == "__main__":
     print(cfg)
 
     Y = load_Y(cfg.device)
-    train_bgplvm(cfg, Y)
+    train_results_dict = train_bgplvm(cfg, Y)

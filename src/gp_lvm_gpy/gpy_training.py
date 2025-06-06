@@ -58,5 +58,13 @@ def train_bgplvm(cfg: BGPLVMConfig, Y: torch.Tensor):
         iterator.set_description(f"Loss: {loss.item():.2f}, Iter: {i}")
         loss.backward()
         optimizer.step()
+        
+        
+    results_dict = {
+    "mu_x": model.X.q_mu.detach().cpu(),  # (N, Q)
+    "log_alpha": -2 * model.covar_module.base_kernel.lengthscale.log().squeeze().detach().cpu(),  # (Q,)
+    "elbo_iters": list(range(len(loss_list))),
+    "elbo_vals": [-v for v in loss_list],
+    }
 
-    return model, loss_list
+    return results_dict
