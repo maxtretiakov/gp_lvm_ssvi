@@ -1,4 +1,4 @@
-# GP-LVM with Structured Stochastic Variational Inference (SSVI)
+# GP-LVM SSVI
 
 This repository implements a **Bayesian Gaussian Process Latent Variable Model (GP-LVM)** trained using **Structured Stochastic Variational Inference (SSVI)**, inspired by the paper by Hoffman & Blei (2015).
 
