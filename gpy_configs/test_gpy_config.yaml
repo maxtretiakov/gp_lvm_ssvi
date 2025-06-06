@@ -1,0 +1,19 @@
+device: auto
+debug: false
+
+optimizer:
+  lr: 0.01
+
+training:
+  batch_size: 100
+  total_iters: 100
+  smoke_test: false
+
+model:
+  latent_dim: null     # => latent_dim = data_dim
+  n_inducing: 25
+  pca: false
+
+init_x:
+  method: default
+  custom_path: null
