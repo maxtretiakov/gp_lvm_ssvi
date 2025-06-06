@@ -16,7 +16,7 @@ Install the required dependencies:
 pip install -r requirements.txt
 ```
 
-### 2. 🚀 Run example with a test config
+### 2. ▶️ Run example with a test config
 
 ```
 python run_gp_lvm_ssvi.py --config configs/original_ssvi_config.yaml
