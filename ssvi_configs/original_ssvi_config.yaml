@@ -21,6 +21,12 @@ init:
   method: default
   custom_path: ""
 
+# inducing points
+inducing:
+  n: 64                 # number of inducing points
+  selection: perm       # strategy: "perm" or "kmeans"
+  seed: 42              # fixed seed (can be null if not needed)
+
 # numerical stability
 jitter:  5e-6
 max_exp: 60.0
