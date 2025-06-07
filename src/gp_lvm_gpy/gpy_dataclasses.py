@@ -32,10 +32,10 @@ class TrainingConfig:
 class BGPLVMConfig:
     device: str = "auto"  # "cuda", "cpu", or "auto"
     debug: bool = False
-    optimizer: OptimizerConfig = OptimizerConfig()
-    training: TrainingConfig = TrainingConfig()
     inducing: InducingConfig
     q_latent: int
+    optimizer: OptimizerConfig = OptimizerConfig()
+    training: TrainingConfig = TrainingConfig()
     init_latent_dist: InitX = InitX()
 
     def device_resolved(self) -> torch.device:
