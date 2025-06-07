@@ -9,7 +9,7 @@ from src.gp_dataclasses import GPSSVIConfig
 from src.gp_lvm_gpy.gpy_dataclasses import BGPLVMConfig
 
 def initialize_latents_and_z(Y: torch.Tensor, model_cfg: GPSSVIConfig | BGPLVMConfig) -> dict:
-    DEV = model_cfg.device
+    DEV = model_cfg.device_resolved()
     
     N = Y.size(0)
     D = Y.size(1)
