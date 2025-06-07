@@ -2,7 +2,7 @@
 """
 Run GP-LVM SSVI from a YAML config.
 
-$ python run_gp_lvm_ssvi.py --config configs/original_ssvi_config.yaml
+$ python run_gp_lvm_ssvi.py --config ssvi_configs/original_ssvi_config.yaml
 """
 from typing import get_type_hints
 import argparse, yaml, torch
