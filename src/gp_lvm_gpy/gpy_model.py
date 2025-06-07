@@ -26,7 +26,10 @@ class bGPLVM(BayesianGPLVM):
 
         # Locations Z_{d} corresponding to u_{d}, they can be randomly initialized or
         # regularly placed with shape (D x n_inducing x latent_dim).
-        self.inducing_inputs = torch.randn(data_dim, n_inducing, latent_dim)
+        Z = init_latents_z_dict["Z"].to(dtype=torch.float64).detach().clone()
+        self.inducing_inputs = Z.unsqueeze(0).expand(data_dim, -1, -1).clone()
+        assert self.inducing_inputs.shape == (data_dim, n_inducing, latent_dim), \
+            f"Expected inducing_inputs shape {(data_dim, n_inducing, latent_dim)}, got {self.inducing_inputs.shape}"
 
         # Sparse Variational Formulation (inducing variables initialised as randn)
         q_u = CholeskyVariationalDistribution(n_inducing, batch_shape=self.batch_shape)
@@ -54,6 +57,8 @@ class bGPLVM(BayesianGPLVM):
         # Kernel (acting on latent dimensions)
         self.mean_module = ZeroMean(ard_num_dims=latent_dim)
         self.covar_module = ScaleKernel(RBFKernel(ard_num_dims=latent_dim))
+        
+        print(f"[bGPLVM] Inducing shape: {self.inducing_inputs.shape} | mu_x shape: {mu_init.shape}")
 
     def forward(self, X):
         mean_x = self.mean_module(X)
