@@ -36,6 +36,8 @@ def initialize_latents_and_z(Y: torch.Tensor, model_cfg: GPSSVIConfig | BGPLVMCo
                             device=DEV, dtype=torch.float64)
         log_s2x = torch.tensor(np.asarray(obj["log_s2x"]),
                                device=DEV, dtype=torch.float64)
+        
+    assert mu_x.shape[1] == Q
     
     # inducing points init
     if model_cfg.inducing.selection == "perm":
