@@ -14,6 +14,6 @@ model:
   n_inducing: 25
   pca: false
 
-init_x:
+init_latent_dist:
   method: default
   custom_path: null

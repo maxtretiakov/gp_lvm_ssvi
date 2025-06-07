@@ -17,7 +17,7 @@ training:
     switch: 50        # iteration number to switch
 
 # init mu_x, log_sigma2_x
-init:
+init_latent_dist:
   method: custom
   custom_path: ./x_dist_init_inputs/oil_latents.json
 

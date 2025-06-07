@@ -35,7 +35,7 @@ class BGPLVMConfig:
     optimizer: OptimizerConfig = OptimizerConfig()
     training: TrainingConfig = TrainingConfig()
     model: ModelConfig = ModelConfig()
-    init_x: InitX = InitX()
+    init_latent_dist: InitX = InitX()
 
     def device_resolved(self) -> torch.device:
         if self.device == "auto":
