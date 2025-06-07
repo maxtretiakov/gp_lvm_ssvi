@@ -7,10 +7,14 @@ $ python run_gp_lvm_ssvi.py --config configs/original_ssvi_config.yaml
 from typing import get_type_hints
 import argparse, yaml, torch
 import dataclasses
+import datetime
 from pathlib import Path
 from typing import Any, Dict
+
 from src.gp_lvm_ssvi_core import train_gp_lvm_ssvi
 from src.gp_dataclasses import *
+from src.data_loaders.oil_data_loader import load_Y
+from src.oil_dataset_plot_core import load_oil_fractions, plot_oil_dataset_gp_lvm_results
 
 
 def _to_dataclass(cls, src: Any):
@@ -65,4 +69,18 @@ if __name__ == "__main__":
 
     cfg = load_config(args.config)
     print(cfg)
-    train_gp_lvm_ssvi(cfg)
+    
+    PROJECT_ROOT = Path(__file__).resolve().parent
+    oil_data_path = PROJECT_ROOT / "oil_data"
+
+    Y, labels = load_Y(oil_data_path, cfg.device)
+    fractions = load_oil_fractions(oil_data_path)
+    
+    train_results_dict = train_gp_lvm_ssvi(cfg)
+    
+    RESULTS_ROOT = PROJECT_ROOT / "gp_lvm_ssvi_run_results"
+    config_name = args.config.stem
+    timestamp = datetime.datetime.now().strftime("%m_%d_%H_%M")
+    save_results_path = RESULTS_ROOT / f"results_{config_name}_{timestamp}"
+
+    plot_oil_dataset_gp_lvm_results(train_results_dict, labels, fractions, save_results_path)

@@ -11,7 +11,7 @@ torch.set_default_dtype(torch.float64)
 from src.gp_dataclasses import GPSSVIConfig
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
-def train_gp_lvm_ssvi(config: GPSSVIConfig):
+def train_gp_lvm_ssvi(config: GPSSVIConfig) -> dict:
     # --------------------------- misc -----------------------------------
     DEV = config.device_resolved()
     DEBUG = config.debug
@@ -345,82 +345,17 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig):
             elbo_hist.append(local_elbo_full_n_mean.item())
             print(f"\nELBO @ {t:3d} : {local_elbo_full_n_mean.item():.4e}")
 
-    # --------------------------- plots ----------------------------------
-    plt.figure(figsize=(12, 5))
-
-    plt.subplot(1, 2, 1)
-    plt.plot(iters, elbo_hist, "-o")
-    plt.grid(ls=":")
-    plt.xlabel("iteration")
-    plt.ylabel("ELBO")
-    plt.title("ELBO trajectory")
-
-    plt.subplot(1, 2, 2)
-    prec = safe_exp(log_alpha.detach())  # (Q,)
-    idx = torch.topk(prec, k=2).indices  # (2,)
-    mu_vis = mu_x.detach()[:, idx]  # (N,2)
-    plt.scatter(mu_vis.cpu()[:, 0],
-                mu_vis.cpu()[:, 1],
-                c=lbl.cpu().float(), cmap="brg", s=14)
-    plt.gca().set_aspect("equal")
-    plt.title(f"latent dims {idx[0].item()} & {idx[1].item()}")
-    plt.xlabel("latent dim 1")
-    plt.ylabel("latent dim 2")
-    plt.tight_layout()
-
-    timestamp = datetime.datetime.now().strftime("%m_%d_%H_%M")
-    results_dir = PROJECT_ROOT / "gp_ssvi_run_results" / f"run_results_{timestamp}"
-    results_dir.mkdir(parents=True, exist_ok=True)
-
-    config_path = results_dir / "config.json"
-    with open(config_path, "w") as f:
-        json.dump(asdict(config), f, indent=4)
-    print(f"Saved config to: {config_path}")
-
-    plt.savefig(results_dir / "elbo_and_latents.png", dpi=300)
-    print(f"Saved plot to: {results_dir / 'elbo_and_latents.png'}")
-
-    # Save Inverse Lengthscale plot
-    fig1, ax1 = plt.subplots(figsize=(6, 4))
-    inv_lscale = safe_exp(log_alpha.detach())
-    ax1.bar(torch.arange(Q).cpu(), inv_lscale.cpu())
-    ax1.set_title("Inverse Lengthscale with SE-ARD kernel")
-    ax1.grid(True, axis='y', ls=':')
-    fig1.tight_layout()
-    inv_lscale_path = results_dir / "inv_lengthscale.png"
-    fig1.savefig(inv_lscale_path, dpi=300)
-    print(f"Saved inverse lengthscale plot to: {inv_lscale_path}")
-    plt.close(fig1)
-
-    #  Load DataTrnFrctns.txt
-    frctn_path = root / "DataTrnFrctns.txt"
-    if not frctn_path.exists():
-        with tarfile.open(arc) as tar:
-            print(tar.getnames())
-            tar.extract("DataTrnFrctns.txt", path=root)
-
-    w = np.loadtxt(frctn_path)  # (N, 2)
-    w3 = 1.0 - w.sum(axis=1, keepdims=True)  # (N, 1)
-    w = np.concatenate((w, w3), axis=1)  # (N, 3)
-
-    fig2, axs = plt.subplots(1, 2, figsize=(12, 5))
-
-    axs[0].plot(iters, elbo_hist, "-o")
-    axs[0].grid(ls=":")
-    axs[0].set_xlabel("iteration")
-    axs[0].set_ylabel("ELBO")
-    axs[0].set_title("ELBO trajectory")
-
-    scatter = axs[1].scatter(mu_x.detach().cpu()[:, 0],
-                             mu_x.detach().cpu()[:, 1],
-                             c=w, s=14)
-    axs[1].set_aspect("equal")
-    axs[1].set_title("latent space")
-    axs[1].set_xlabel("mu_1")
-    axs[1].set_ylabel("mu_2")
-
-    fig2.tight_layout()
-    latent_fracs_path = results_dir / "latent_space_by_fractions.png"
-    fig2.savefig(latent_fracs_path, dpi=300)
-    print(f"Saved latent space plot to: {latent_fracs_path}")
-    plt.close(fig2)
+    results_dict = {
+    "mu_x": mu_x.detach().cpu(),  # (N, Q)
+    "log_s2x": log_s2x.detach().cpu(),  # (N, Q)
+    "Z": Z.detach().cpu(),  # (M, Q)
+    "log_sf2": log_sf2.item(),
+    "log_alpha": log_alpha.detach().cpu(),  # (Q,)
+    "log_beta_inv": log_beta_inv.item(),
+    "m_u": m_u.detach().cpu(),  # (D, M)
+    "C_u": C_u.detach().cpu(),  # (D, M, M)
+    "elbo_iters": iters,
+    "elbo_vals": elbo_hist,
+    }
+    
+    return results_dict
