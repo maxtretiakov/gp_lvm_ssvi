@@ -37,9 +37,9 @@ def main():
 
     Y = load_oil()
     cfg = InitGenConfig(method=args.method, seed=args.seed)
-    mu, s2 = build_latents(Y, Y.shape[1], torch.device("cpu"), cfg)
-    save_json(mu, s2, args.out)
-    print("Saved →", args.out)
+    mu_x, log_s2x = build_latents(Y, Y.shape[1], torch.device("cpu"), cfg)
+    save_json(mu_x, log_s2x, args.out)
+    print("Saved ->", args.out)
 
 if __name__ == "__main__":
     main()

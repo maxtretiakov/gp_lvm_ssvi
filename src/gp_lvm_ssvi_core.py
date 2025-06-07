@@ -69,10 +69,10 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig) -> dict:
             raise ValueError("init.custom_path was not specified in the config")
         with open(config.init.custom_path, "r", encoding="utf-8") as f:
             obj = json.load(f)
-        mu_x = torch.tensor(np.asarray(obj["mu"]),
+        mu_x = torch.tensor(np.asarray(obj["mu_x"]),
                             device=DEV, dtype=torch.float64,
                             requires_grad=True)
-        log_s2x = torch.tensor(np.asarray(obj["s2"]),
+        log_s2x = torch.tensor(np.asarray(obj["log_s2x"]),
                                device=DEV, dtype=torch.float64,
                                requires_grad=True)
 
