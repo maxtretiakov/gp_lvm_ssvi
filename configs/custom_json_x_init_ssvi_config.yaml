@@ -10,7 +10,7 @@ lr:
 # training schedule
 training:
   batch_size: 128     # B
-  total_iters: 300    # T_TOTAL
+  total_iters: 3    # T_TOTAL
   inner_iters:
     start:  40        # INNER0 (first   inner_switch iters)
     after:  30        # INNER  (after   inner_switch)
