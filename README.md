@@ -14,7 +14,6 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
----
 
 ### 2. ▶️ Run SSVI-based GP-LVM (main model)
 
@@ -22,7 +21,6 @@ pip install -r requirements.txt
 python run_gp_lvm_ssvi.py --config configs/original_ssvi_config.yaml
 ```
 
----
 
 ### 3. ▶️ Run GP-LVM (classic version using GPy)
 
@@ -30,7 +28,6 @@ python run_gp_lvm_ssvi.py --config configs/original_ssvi_config.yaml
 python run_gp_lvm_gpy.py
 ```
 
----
 
 ### 4. 🔧 Custom initialization of latent space (optional)
 
