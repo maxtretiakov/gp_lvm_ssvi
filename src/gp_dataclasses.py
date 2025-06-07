@@ -54,7 +54,7 @@ class GPSSVIConfig:
     jitter: float
     max_exp: float
     rho: Rho
-    m_inducing: int
+    inducing: int
     q_latent: int
     init: InitXDistSsvi
 
