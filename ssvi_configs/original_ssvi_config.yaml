@@ -1,5 +1,5 @@
 # general
-device: auto          # "cuda", "cpu", or "auto"
+device: cuda          # "cuda", "cpu", or "auto"
 debug: false          # print tensor shapes on first outer loop
 
 # learning rates
@@ -25,7 +25,7 @@ init:
 inducing:
   n_inducing: 64                 # number of inducing points
   selection: perm       # strategy: "perm" or "kmeans"
-  seed: 42              # fixed seed (can be null if not needed)
+  seed: 137              # fixed seed (can be null if not needed)
 
 # numerical stability
 jitter:  5e-6
