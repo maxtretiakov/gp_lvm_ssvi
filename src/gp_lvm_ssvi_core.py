@@ -54,7 +54,7 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, init_latents_z_dict: dict) -> dict:
     Y = torch.tensor(Y_np, device=DEV)  # (N, D)
     lbl = torch.tensor(lbl_np, device=DEV)  # (N,)
     N, D = Y.shape  # N=846, D=12
-    Q = D
+    Q = config.q_latent
 
     # ----------------------- latent variables ---------------------------
     mu_x = init_latents_z_dict["mu_x"].to(device=DEV, dtype=torch.float64).detach().clone().requires_grad_()

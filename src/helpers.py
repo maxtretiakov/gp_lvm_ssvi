@@ -12,9 +12,8 @@ def initialize_latents_and_z(Y: torch.Tensor, model_cfg: GPSSVIConfig | BGPLVMCo
     DEV = model_cfg.device_resolved()
     
     N = Y.size(0)
-    D = Y.size(1)
     n_inducing = model_cfg.inducing.n_inducing
-    Q = D
+    Q = model_cfg.q_latent
     
     Y_np = Y.detach().cpu().numpy()
     
