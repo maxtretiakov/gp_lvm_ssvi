@@ -2,8 +2,10 @@
 """
 Example:
     python scripts/x_dist_initialize.py \
-           --method random --seed 42 \
-           --out x_dist_init_inputs/oil_latents.json
+        --method random \
+        --q_latent 12 \
+        --seed 42 \
+        --out x_dist_init_inputs/oil_latents.json
 """
 import argparse, tarfile, urllib.request, numpy as np, torch
 from pathlib import Path
@@ -37,7 +39,7 @@ def main():
 
     Y = load_oil()
     cfg = InitGenConfig(method=args.method, seed=args.seed)
-    mu_x, log_s2x = build_latents(Y, Y.shape[1], torch.device("cpu"), cfg)
+    mu_x, log_s2x = build_latents(Y, cfg.q_latent, torch.device("cpu"), cfg)
     save_json(mu_x, log_s2x, args.out)
     print("Saved ->", args.out)
 
