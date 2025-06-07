@@ -15,6 +15,7 @@ from src.gp_lvm_ssvi_core import train_gp_lvm_ssvi
 from src.gp_dataclasses import *
 from src.data_loaders.oil_data_loader import load_Y
 from src.oil_dataset_plot_core import load_oil_fractions, plot_oil_dataset_gp_lvm_results
+from src.helpers import initialize_latents_and_z
 
 
 def _to_dataclass(cls, src: Any):
@@ -76,7 +77,8 @@ if __name__ == "__main__":
     Y, labels = load_Y(oil_data_path, cfg.device)
     fractions = load_oil_fractions(oil_data_path)
     
-    train_results_dict = train_gp_lvm_ssvi(cfg)
+    init_latents_and_z_dict = initialize_latents_and_z(Y, cfg)
+    train_results_dict = train_gp_lvm_ssvi(cfg, init_latents_and_z_dict)
     
     RESULTS_ROOT = PROJECT_ROOT / "gp_lvm_ssvi_run_results"
     config_name = args.config.stem

@@ -1,7 +1,14 @@
 from dataclasses import dataclass
 import torch
-from typing import Optional
+from typing import Optional, Literal
 
+
+@dataclass
+class InducingConfig:
+    n_inducing: int                         # Number of inducing points (M)
+    selection: Literal["perm", "kmeans"]    # Strategy for selecting Z
+    seed: Optional[int] = None              # Random seed (for reproducibility)
+    
 @dataclass
 class InitXDistSsvi:
     """

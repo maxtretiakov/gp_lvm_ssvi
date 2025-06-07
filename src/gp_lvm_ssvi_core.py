@@ -11,7 +11,7 @@ torch.set_default_dtype(torch.float64)
 from src.gp_dataclasses import GPSSVIConfig
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
-def train_gp_lvm_ssvi(config: GPSSVIConfig) -> dict:
+def train_gp_lvm_ssvi(config: GPSSVIConfig, init_latents_z_dict: dict) -> dict:
     # --------------------------- misc -----------------------------------
     DEV = config.device_resolved()
     DEBUG = config.debug
@@ -57,30 +57,24 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig) -> dict:
     Q = D
 
     # ----------------------- latent variables ---------------------------
-    if config.init.method.lower() == "default":
-        print("Default x dist params init used")
-        Y_std = (Y_np - Y_np.mean(0)) / Y_np.std(0)
-        mu_x = torch.tensor(PCA(Q).fit_transform(Y_std),
-                            device=DEV, requires_grad=True)  # (N, Q)
-        log_s2x = torch.full_like(mu_x, -2.0, requires_grad=True)  # (N, Q)
-    else:
-        print("Custom json x dist params init used")
-        if not config.init.custom_path:
-            raise ValueError("init.custom_path was not specified in the config")
-        with open(config.init.custom_path, "r", encoding="utf-8") as f:
-            obj = json.load(f)
-        mu_x = torch.tensor(np.asarray(obj["mu_x"]),
+    mu_x = torch.tensor(np.asarray(init_latents_z_dict["mu_x"]),
+                        device=DEV, dtype=torch.float64,
+                        requires_grad=True)
+    log_s2x = torch.tensor(np.asarray(init_latents_z_dict["log_s2x"]),
                             device=DEV, dtype=torch.float64,
                             requires_grad=True)
-        log_s2x = torch.tensor(np.asarray(obj["log_s2x"]),
-                               device=DEV, dtype=torch.float64,
-                               requires_grad=True)
 
 
     # ------------------- kernel & inducing inputs -----------------------
     M = 64
     perm = torch.randperm(N, device=DEV)[:M]
     Z = mu_x.detach()[perm].clone().requires_grad_(True)  # (M=64, Q)
+    
+    if config.init.method.lower() != "default":
+        print("Custom inducing points init")
+        Z = torch.tensor(np.asarray(init_latents_z_dict["Z"]),
+                        device=DEV, dtype=torch.float64,
+                        requires_grad=True)
 
     log_sf2 = torch.tensor(math.log(Y_np.var()), device=DEV, requires_grad=True)  # ()
     log_alpha = (torch.full((Q,), -2.0, device=DEV)
