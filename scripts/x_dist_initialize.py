@@ -3,7 +3,7 @@
 Example:
     python scripts/x_dist_initialize.py \
            --method random --seed 42 \
-           --out inputs/oil_latents.json
+           --out x_dist_init_inputs/oil_latents.json
 """
 import argparse, tarfile, urllib.request, numpy as np, torch
 from pathlib import Path
