@@ -33,12 +33,14 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--method", required=True,
                    help="pca | prior | random | isomap | umap")
+    p.add_argument("--q_latent", required=True, type=int,
+                   help="Dimensionality of the latent space (Q)")
     p.add_argument("--out", required=True, type=Path)
     p.add_argument("--seed", type=int)
     args = p.parse_args()
 
     Y = load_oil()
-    cfg = InitGenConfig(method=args.method, seed=args.seed)
+    cfg = InitGenConfig(method=args.method, q_latent=args.q_latent, seed=args.seed)
     mu_x, log_s2x = build_latents(Y, cfg.q_latent, torch.device("cpu"), cfg)
     save_json(mu_x, log_s2x, args.out)
     print("Saved ->", args.out)
