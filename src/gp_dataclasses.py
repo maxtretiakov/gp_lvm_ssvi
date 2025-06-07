@@ -56,7 +56,7 @@ class GPSSVIConfig:
     rho: Rho
     inducing: InducingConfig
     q_latent: int
-    init: InitXDistSsvi
+    init_latent_dist: InitXDistSsvi
 
     def device_resolved(self) -> torch.device:
         if self.device == "auto":

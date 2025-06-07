@@ -18,7 +18,7 @@ def initialize_latents_and_z(Y: torch.Tensor, model_cfg: GPSSVIConfig | BGPLVMCo
     Y_np = Y.detach().cpu().numpy()
     
     # latent space params init
-    if model_cfg.init.method.lower() == "default":
+    if model_cfg.init_latent_dist.method.lower() == "default":
         print("Default x dist params init used")
         Y_std = (Y_np - Y_np.mean(0)) / Y_np.std(0)
         mu_x = torch.tensor(PCA(Q).fit_transform(Y_std),
@@ -26,9 +26,9 @@ def initialize_latents_and_z(Y: torch.Tensor, model_cfg: GPSSVIConfig | BGPLVMCo
         log_s2x = torch.full_like(mu_x, -2.0)  # (N, Q)
     else:
         print("Custom json x dist params init used")
-        if not model_cfg.init.custom_path:
+        if not model_cfg.init_latent_dist.custom_path:
             raise ValueError("init.custom_path was not specified in the config")
-        with open(model_cfg.init.custom_path, "r", encoding="utf-8") as f:
+        with open(model_cfg.init_latent_dist.custom_path, "r", encoding="utf-8") as f:
             obj = json.load(f)
             
         mu_x = torch.tensor(np.asarray(obj["mu_x"]),
