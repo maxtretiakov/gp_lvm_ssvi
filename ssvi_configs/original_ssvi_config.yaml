@@ -1,5 +1,5 @@
 # general
-device: auto          # "cuda", "cpu", or "auto"
+device: cuda          # "cuda", "cpu", or "auto"
 debug: false          # print tensor shapes on first outer loop
 
 # learning rates
@@ -21,6 +21,12 @@ init:
   method: default
   custom_path: ""
 
+# inducing points
+inducing:
+  n_inducing: 64                 # number of inducing points
+  selection: perm       # strategy: "perm" or "kmeans"
+  seed: 137              # fixed seed (can be null if not needed)
+
 # numerical stability
 jitter:  5e-6
 max_exp: 60.0
@@ -31,5 +37,4 @@ rho:
   k:  0.6
 
 # model structure
-m_inducing: 64        # M
 q_latent:   12        # Q  (= D for the oil data)
