@@ -1,7 +1,13 @@
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Literal
 import torch
 
+@dataclass
+class InducingConfig:
+    n_inducing: int                         # Number of inducing points (M)
+    selection: Literal["perm", "kmeans"]    # Strategy for selecting Z
+    seed: Optional[int] = None              # Random seed (for reproducibility)
+    
 @dataclass
 class InitX:
     """
@@ -23,18 +29,13 @@ class TrainingConfig:
     smoke_test: bool = False 
 
 @dataclass
-class ModelConfig:
-    latent_dim: Optional[int] = None  # if None - will be data_dim
-    n_inducing: int = 25
-    pca: bool = False  # using PCA
-
-@dataclass
 class BGPLVMConfig:
     device: str = "auto"  # "cuda", "cpu", or "auto"
     debug: bool = False
     optimizer: OptimizerConfig = OptimizerConfig()
     training: TrainingConfig = TrainingConfig()
-    model: ModelConfig = ModelConfig()
+    inducing: InducingConfig
+    q_latent: int
     init_latent_dist: InitX = InitX()
 
     def device_resolved(self) -> torch.device:

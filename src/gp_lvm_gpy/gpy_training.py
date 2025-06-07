@@ -23,17 +23,16 @@ def load_init_x(init_x_config, N, latent_dim):
     return {"init_mu_x": mu, "init_log_sigma2_x": log_sigma2}
 
 
-def train_bgplvm(cfg: BGPLVMConfig, Y: torch.Tensor):
+def train_bgplvm(cfg: BGPLVMConfig, Y: torch.Tensor, init_latents_and_z_dict: dict):
     torch.set_default_dtype(torch.float64)
     device = cfg.device_resolved()
     Y = Y.to(device)
 
     N, data_dim = Y.shape
-    latent_dim = cfg.model.latent_dim or data_dim
-    n_inducing = cfg.model.n_inducing
-    x_init = load_init_x(cfg.init_x, N, latent_dim)
+    latent_dim = cfg.q_latent
+    n_inducing = cfg.inducing.n_inducing
 
-    model = bGPLVM(N, data_dim, latent_dim, n_inducing, x_init).to(device)
+    model = bGPLVM(N, data_dim, latent_dim, n_inducing, init_latents_and_z_dict).to(device)
     likelihood = GaussianLikelihood(batch_shape=model.batch_shape).to(device)
     mll = VariationalELBO(likelihood, model, num_data=N)
 

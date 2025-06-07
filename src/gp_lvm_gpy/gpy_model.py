@@ -20,8 +20,7 @@ def _init_pca(Y, latent_dim):
 
 
 class bGPLVM(BayesianGPLVM):
-    def __init__(self, n, data_dim, latent_dim, n_inducing, init_x=None):
-        pca=False
+    def __init__(self, n, data_dim, latent_dim, n_inducing, init_latents_z_dict):
         self.n = n
         self.batch_shape = torch.Size([data_dim])
 
@@ -37,25 +36,14 @@ class bGPLVM(BayesianGPLVM):
         X_prior_mean = torch.zeros(n, latent_dim)  # shape: N x Q
         prior_x = NormalPrior(X_prior_mean, torch.ones_like(X_prior_mean))
 
-        if init_x is not None:
-            print("Custom init_x")
-            mu_init = torch.as_tensor(init_x['init_mu_x'], dtype=torch.float32)
-            log_sigma2_init = torch.as_tensor(init_x['init_log_sigma2_x'], dtype=torch.float32)
-            assert mu_init.shape == (n, latent_dim),         "init_x['init_mu_x'] has wrong shape"
-            assert log_sigma2_init.shape == (n, latent_dim), "init_x['init_log_sigma2_x'] has wrong shape"
-
-            std_init = (log_sigma2_init.exp()).sqrt()  # std = sqrt(exp(log_sigma2))
-
-            X_init = torch.nn.Parameter(mu_init)
-            X = VariationalLatentVariable(n, data_dim, latent_dim, X_init, prior_x)
-            X._variational_std = torch.nn.Parameter(std_init)  # override std
-        else:
-            print("Default init_x")
-            if pca:
-                X_init = _init_pca(Y, latent_dim)
-            else:
-                X_init = torch.nn.Parameter(torch.randn(n, latent_dim))
-            X = VariationalLatentVariable(n, data_dim, latent_dim, X_init, prior_x)
+        mu_init = init_latents_z_dict["mu_x"].to(dtype=torch.float64).detach().clone()
+        log_sigma2_init = init_latents_z_dict["log_s2x"].to(dtype=torch.float64).detach().clone()
+        assert mu_init.shape == (n, latent_dim),         "init_latents_z_dict['mu_x'] has wrong shape"
+        assert log_sigma2_init.shape == (n, latent_dim), "init_latents_z_dict['log_s2x'] has wrong shape"
+        std_init = (log_sigma2_init.exp()).sqrt()
+        X_init = torch.nn.Parameter(mu_init)
+        X = VariationalLatentVariable(n, data_dim, latent_dim, X_init, prior_x)
+        X._variational_std = torch.nn.Parameter(std_init)  # override std
 
         # For (a) or (b) change to below:
         # X = PointLatentVariable(n, latent_dim, X_init)
