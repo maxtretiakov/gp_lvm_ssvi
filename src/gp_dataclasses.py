@@ -3,7 +3,7 @@ import torch
 from typing import Optional
 
 @dataclass
-class InitTrainConfig:
+class InitXDistSsvi:
     """
     Used in train_gp_lvm_ssvi:
         - method: "default" | "custom"
@@ -49,7 +49,7 @@ class GPSSVIConfig:
     rho: Rho
     m_inducing: int
     q_latent: int
-    init: InitTrainConfig
+    init: InitXDistSsvi
 
     def device_resolved(self) -> torch.device:
         if self.device == "auto":
