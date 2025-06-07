@@ -62,13 +62,8 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, init_latents_z_dict: dict) -> dict:
 
 
     # ------------------- kernel & inducing inputs -----------------------
-    M = 64
-    perm = torch.randperm(N, device=DEV)[:M]
-    Z = mu_x.detach()[perm].clone().requires_grad_(True)  # (M=64, Q)
-    
-    if config.init.method.lower() != "default":
-        print("Custom inducing points init")
-        Z = init_latents_z_dict["Z"].to(device=DEV, dtype=torch.float64).detach().clone().requires_grad_()
+    M = config.inducing.n_inducing
+    Z = init_latents_z_dict["Z"].to(device=DEV, dtype=torch.float64).detach().clone().requires_grad_()        
 
     log_sf2 = torch.tensor(math.log(Y_np.var()), device=DEV, requires_grad=True)  # ()
     log_alpha = (torch.full((Q,), -2.0, device=DEV)
