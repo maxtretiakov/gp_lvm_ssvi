@@ -57,12 +57,8 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, init_latents_z_dict: dict) -> dict:
     Q = D
 
     # ----------------------- latent variables ---------------------------
-    mu_x = torch.tensor(np.asarray(init_latents_z_dict["mu_x"]),
-                        device=DEV, dtype=torch.float64,
-                        requires_grad=True)
-    log_s2x = torch.tensor(np.asarray(init_latents_z_dict["log_s2x"]),
-                            device=DEV, dtype=torch.float64,
-                            requires_grad=True)
+    mu_x = init_latents_z_dict["mu_x"].to(device=DEV, dtype=torch.float64).detach().clone().requires_grad_()
+    log_s2x = init_latents_z_dict["log_s2x"].to(device=DEV, dtype=torch.float64).detach().clone().requires_grad_()
 
 
     # ------------------- kernel & inducing inputs -----------------------
@@ -72,9 +68,7 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, init_latents_z_dict: dict) -> dict:
     
     if config.init.method.lower() != "default":
         print("Custom inducing points init")
-        Z = torch.tensor(np.asarray(init_latents_z_dict["Z"]),
-                        device=DEV, dtype=torch.float64,
-                        requires_grad=True)
+        Z = init_latents_z_dict["Z"].to(device=DEV, dtype=torch.float64).detach().clone().requires_grad_()
 
     log_sf2 = torch.tensor(math.log(Y_np.var()), device=DEV, requires_grad=True)  # ()
     log_alpha = (torch.full((Q,), -2.0, device=DEV)
