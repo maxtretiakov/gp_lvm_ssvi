@@ -37,7 +37,9 @@ You can generate custom initialization using different methods (`random`, `pca`,
 
 ```bash
 python scripts/x_dist_initialize.py \
-       --method random --seed 42 \
+       --method random \
+       --q_latent 12 \
+       --seed 42 \
        --out x_dist_init_inputs/oil_latents.json
 ```
 
