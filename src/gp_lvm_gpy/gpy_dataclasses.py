@@ -30,10 +30,10 @@ class TrainingConfig:
 
 @dataclass
 class BGPLVMConfig:
-    device: str = "auto"  # "cuda", "cpu", or "auto"
-    debug: bool = False
     inducing: InducingConfig
     q_latent: int
+    device: str = "auto"  # "cuda", "cpu", or "auto"
+    debug: bool = False
     optimizer: OptimizerConfig = OptimizerConfig()
     training: TrainingConfig = TrainingConfig()
     init_latent_dist: InitX = InitX()
