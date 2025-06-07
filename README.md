@@ -18,14 +18,14 @@ pip install -r requirements.txt
 ### 2. ▶️ Run SSVI-based GP-LVM (main model)
 
 ```bash
-python run_gp_lvm_ssvi.py --config configs/original_ssvi_config.yaml
+python run_gp_lvm_ssvi.py --config ssvi_configs/original_ssvi_config.yaml
 ```
 
 
 ### 3. ▶️ Run GP-LVM (classic version using GPy)
 
 ```bash
-python run_gp_lvm_gpy.py
+python run_gp_lvm_gpy.py --config gpy_configs/original_gpy_config.yaml
 ```
 
 
