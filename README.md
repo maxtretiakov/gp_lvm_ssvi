@@ -50,5 +50,3 @@ init:
 ```
 
 Both models (`run_gp_lvm_ssvi.py` and `run_gp_lvm_gpy.py`) support this custom latent initialization.
-
----
