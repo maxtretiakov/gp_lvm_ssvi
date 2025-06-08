@@ -2,7 +2,6 @@
 
 This repository implements a **Bayesian Gaussian Process Latent Variable Model (GP-LVM)** trained using **Structured Stochastic Variational Inference (SSVI)**, inspired by the paper by Hoffman & Blei (2015).
 
----
 
 ## 🚀 Quick Start
 
@@ -59,7 +58,11 @@ By default, latent variables `mu_x` and `log_s2x` are initialized via **PCA**.
 You can generate custom initialization using different methods (`random`, `pca`, `prior`, `isomap`, `umap`) via:
 
 ```bash
-python scripts/x_dist_initialize.py        --method random        --q_latent 12        --seed 42        --out x_dist_init_inputs/oil_latents.json
+python scripts/x_dist_initialize.py \Add commentMore actions
+       --method random \
+       --q_latent 12 \
+       --seed 42 \
+       --out x_dist_init_inputs/oil_latents.json
 ```
 
 Then update your config file:
