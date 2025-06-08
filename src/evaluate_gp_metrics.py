@@ -1,7 +1,9 @@
+import json
+from pathlib import Path
+
 import torch
 import numpy as np
 from sklearn.metrics import root_mean_squared_error
-import json
 
 def save_metrics_json(metrics: dict, path: Path):
     path.parent.mkdir(parents=True, exist_ok=True)
