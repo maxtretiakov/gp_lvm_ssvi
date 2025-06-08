@@ -11,7 +11,7 @@ torch.set_default_dtype(torch.float64)
 from src.gp_dataclasses import GPSSVIConfig
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
-def train_gp_lvm_ssvi(config: GPSSVIConfig, init_latents_z_dict: dict) -> dict:
+def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict: dict) -> dict:
     # --------------------------- misc -----------------------------------
     DEV = config.device_resolved()
     DEBUG = config.debug
@@ -39,20 +39,7 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, init_latents_z_dict: dict) -> dict:
 
 
     # --------------------------- data -----------------------------------
-    root = PROJECT_ROOT / "oil_data"
-    root.mkdir(exist_ok=True)
-    url = "http://staffwww.dcs.shef.ac.uk/people/N.Lawrence/resources/3PhData.tar.gz"
-    arc = root / "3PhData.tar.gz"
-    if not arc.exists():
-        urllib.request.urlretrieve(url, arc)
-    with tarfile.open(arc) as tar:
-        tar.extract("DataTrn.txt", path=root)
-        tar.extract("DataTrnLbls.txt", path=root)
-
-    Y_np = np.loadtxt(root / "DataTrn.txt")  # (N, D)
-    lbl_np = np.loadtxt(root / "DataTrnLbls.txt").astype(int)  # (N,)
-    Y = torch.tensor(Y_np, device=DEV)  # (N, D)
-    lbl = torch.tensor(lbl_np, device=DEV)  # (N,)
+    Y = Y.to(DEV)
     N, D = Y.shape  # N=846, D=12
     Q = config.q_latent
 
@@ -65,7 +52,7 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, init_latents_z_dict: dict) -> dict:
     M = config.inducing.n_inducing
     Z = init_latents_z_dict["Z"].to(device=DEV, dtype=torch.float64).detach().clone().requires_grad_()        
 
-    log_sf2 = torch.tensor(math.log(Y_np.var()), device=DEV, requires_grad=True)  # ()
+    log_sf2 = torch.tensor(math.log(Y.var().item()), device=DEV, requires_grad=True)  # ()
     log_alpha = (torch.full((Q,), -2.0, device=DEV)
                  + 0.1 * torch.randn(Q, device=DEV)
                  ).requires_grad_()  # (Q,)
