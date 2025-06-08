@@ -59,7 +59,7 @@ def train_bgplvm(cfg: BGPLVMConfig, Y: torch.Tensor, init_latents_and_z_dict: di
         optimizer.step()
         
     with torch.no_grad():
-        q_u = model.variational_strategy.variational_distribution
+        q_u = model.q_u_dist
         latent_mu = model.X.q_mu
         dist = model(latent_mu)  # (batch_shape=D)
         
