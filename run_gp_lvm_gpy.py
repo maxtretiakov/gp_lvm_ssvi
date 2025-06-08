@@ -84,7 +84,7 @@ if __name__ == "__main__":
     timestamp = datetime.datetime.now().strftime("%m_%d_%H_%M")
     save_results_path = RESULTS_ROOT / f"results_{config_name}_{timestamp}"
     
-    plot_oil_dataset_gp_lvm_results(train_results_dict, labels, fractions, save_results_path)
+    plot_oil_dataset_gp_lvm_results(train_results_dict, labels[train_idx], fractions[train_idx], save_results_path)
     
     metrics_path = save_results_path / f"{config_name}_metrics.json"
     save_metrics_json(metrics, metrics_path)
