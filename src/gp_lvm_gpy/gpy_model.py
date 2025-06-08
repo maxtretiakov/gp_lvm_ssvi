@@ -33,7 +33,6 @@ class bGPLVM(BayesianGPLVM):
 
         # Sparse Variational Formulation (inducing variables initialised as randn)
         q_u = CholeskyVariationalDistribution(n_inducing, batch_shape=self.batch_shape)
-        self.q_u_dist = q_u
         q_f = VariationalStrategy(self, self.inducing_inputs, q_u, learn_inducing_locations=True)
 
         # Define prior for X
@@ -54,6 +53,8 @@ class bGPLVM(BayesianGPLVM):
         # X = MAPLatentVariable(n, latent_dim, X_init, prior_x)
 
         super().__init__(X, q_f)
+
+        self.q_u_dist = q_u
 
         # Kernel (acting on latent dimensions)
         self.mean_module = ZeroMean(ard_num_dims=latent_dim)
