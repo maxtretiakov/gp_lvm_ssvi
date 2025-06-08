@@ -23,6 +23,7 @@ class InitXDistSsvi:
 class LR:
     x: float
     hyp: float
+    alpha: float
 
 
 @dataclass

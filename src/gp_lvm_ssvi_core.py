@@ -15,7 +15,7 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
     # --------------------------- misc -----------------------------------
     DEV = config.device_resolved()
     DEBUG = config.debug
-    LR_X, LR_HYP, LR_ALPHA = config.lr.x, config.lr.hyp, 3e-2
+    LR_X, LR_HYP, LR_ALPHA = config.lr.x, config.lr.hyp, config.lr.alpha
     BATCH, T_TOTAL = config.training.batch_size, config.training.total_iters
     INNER0 = config.training.inner_iters.start
     INNER = config.training.inner_iters.after
