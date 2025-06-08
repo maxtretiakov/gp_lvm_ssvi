@@ -54,6 +54,8 @@ class bGPLVM(BayesianGPLVM):
 
         super().__init__(X, q_f)
 
+        self.q_u_dist = q_u
+
         # Kernel (acting on latent dimensions)
         self.mean_module = ZeroMean(ard_num_dims=latent_dim)
         self.covar_module = ScaleKernel(RBFKernel(ard_num_dims=latent_dim))

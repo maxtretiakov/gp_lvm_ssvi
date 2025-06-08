@@ -88,3 +88,39 @@ def plot_oil_dataset_gp_lvm_results(results: dict, labels, fractions, save_path:
     fig2.savefig(path_frac, dpi=300)
     print(f"Saved latent space plot to: {path_frac}")
     plt.close(fig2)
+    
+    if "predictive_variance" in results:
+        var = results["predictive_variance"]
+        if var.ndim == 2:
+            var = var.mean(dim=1)
+        elif var.ndim == 1:
+            pass
+        else:
+            raise ValueError(f"Unexpected shape for predictive_variance: {var.shape}")
+    
+        labels_np = labels.cpu().numpy()
+        if labels_np.ndim == 2:
+            labels_np = np.argmax(labels_np, axis=1)
+    
+        var_np = var.cpu().numpy()
+    
+        unique_labels = np.unique(labels_np)
+    
+        grouped_vars = []
+        for label in unique_labels:
+            mask = labels_np == label
+            grouped_vars.append(var_np[mask])
+    
+        fig3, ax3 = plt.subplots(figsize=(8, 4))
+        ax3.boxplot(grouped_vars, labels=[f"Class {int(c)}" for c in unique_labels])
+        ax3.set_title("Predictive variance by class")
+        ax3.set_ylabel("mean predictive variance")
+        ax3.set_xlabel("Class label")
+        ax3.grid(ls=":")
+        fig3.tight_layout()
+    
+        path_varbox = save_path / "predictive_variance_boxplot.png"
+        fig3.savefig(path_varbox, dpi=300)
+        print(f"Saved predictive variance boxplot to: {path_varbox}")
+        plt.close(fig3)
+

@@ -58,12 +58,21 @@ def train_bgplvm(cfg: BGPLVMConfig, Y: torch.Tensor, init_latents_and_z_dict: di
         loss.backward()
         optimizer.step()
         
+    with torch.no_grad():
+        q_u = model.q_u_dist
+        latent_mu = model.X.q_mu
+        dist = model(latent_mu)  # (batch_shape=D)
         
     results_dict = {
     "mu_x": model.X.q_mu.detach().cpu(),  # (N, Q)
     "log_alpha": -2 * model.covar_module.base_kernel.lengthscale.log().squeeze().detach().cpu(),  # (Q,)
     "elbo_iters": list(range(len(loss_list))),
     "elbo_vals": [-v for v in loss_list],
+    "Z": model.inducing_inputs[0].detach().cpu(),
+    "m_u": q_u.variational_mean.detach().cpu(),  
+    "log_sf2": model.covar_module.outputscale.log().item(),  # log(signal variance)
+    "predictive_mean": dist.mean.T.cpu(),      # (N, D)
+    "predictive_variance": dist.variance.T.cpu(),  # (N, D)
     }
 
     return results_dict
