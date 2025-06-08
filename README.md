@@ -7,15 +7,19 @@ This repository implements a **Bayesian Gaussian Process Latent Variable Model (
 ## 🚀 Quick Start
 
 ### 1. 📦 Install Requirements
-Ensure you have **Python 3.11** installed.
+
+Please make sure you have **Python 3.11** installed.
 
 Install dependencies:
+
 ```bash
 pip install -r requirements.txt
 ```
 
 
 ### 2. ▶️ Run GP-LVM SSVI (main model)
+
+Run a single experiment with a specific config file:
 
 ```bash
 python run_gp_lvm_ssvi.py --config ssvi_configs/original_ssvi_config.yaml
@@ -29,21 +33,37 @@ python run_gp_lvm_gpy.py --config gpy_configs/original_gpy_config.yaml
 ```
 
 
-### 4. 🔧 Custom initialization of latent space (optional)
+### 4. 🔁 Run Multiple Configs from Folder
+
+To automatically run all configuration files (`.yaml`) from a folder:
+
+#### ✅ SSVI experiments
+
+```bash
+bash jobs/run_ssvi_configs_in_the_folder.sh ssvi_configs
+```
+
+#### ✅ GPy experiments
+
+```bash
+bash jobs/run_gpy_configs_in_the_folder.sh gpy_configs
+```
+
+These scripts iterate over all YAML files in the given folder and run each experiment sequentially.
+
+
+### 5. 🔧 Custom Initialization of Latent Space (optional)
 
 By default, latent variables `mu_x` and `log_s2x` are initialized via **PCA**.
 
 You can generate custom initialization using different methods (`random`, `pca`, `prior`, `isomap`, `umap`) via:
 
 ```bash
-python scripts/x_dist_initialize.py \
-       --method random \
-       --q_latent 12 \
-       --seed 42 \
-       --out x_dist_init_inputs/oil_latents.json
+python scripts/x_dist_initialize.py        --method random        --q_latent 12        --seed 42        --out x_dist_init_inputs/oil_latents.json
 ```
 
 Then update your config file:
+
 ```yaml
 # Inside your config.yaml
 init:
