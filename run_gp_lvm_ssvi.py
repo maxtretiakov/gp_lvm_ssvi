@@ -62,8 +62,6 @@ def start_gp_lvm_ssvi_training(cfg: GPSSVIConfig):
 
     train_gp_lvm_ssvi(cfg)
 
-    print("Mocked training completed")
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
