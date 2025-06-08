@@ -328,4 +328,12 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
     "elbo_vals": elbo_hist,
     }
     
+    with torch.no_grad():
+        A = k_se(mu_x, Z, log_sf2, log_alpha) @ K_inv  # (N, M)
+        predictive_mean = A @ m_u.T  # (N, D)
+        predictive_variance = torch.stack([(A @ Sigma_u(C_u)[d] * A).sum(-1) for d in range(D)], dim=1)  # (N, D)
+
+    results_dict["predictive_mean"] = predictive_mean.cpu()
+    results_dict["predictive_variance"] = predictive_variance.cpu()
+    
     return results_dict
