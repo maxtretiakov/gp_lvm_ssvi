@@ -78,7 +78,7 @@ if __name__ == "__main__":
     fractions = load_oil_fractions(oil_data_path)
     
     init_latents_and_z_dict = initialize_latents_and_z(Y, cfg)
-    train_results_dict = train_gp_lvm_ssvi(cfg, init_latents_and_z_dict)
+    train_results_dict = train_gp_lvm_ssvi(cfg, Y, init_latents_and_z_dict)
     
     RESULTS_ROOT = PROJECT_ROOT / "gp_lvm_ssvi_run_results"
     config_name = args.config.stem
