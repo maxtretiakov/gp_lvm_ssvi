@@ -99,8 +99,9 @@ def plot_oil_dataset_gp_lvm_results(results: dict, labels, fractions, save_path:
             raise ValueError(f"Unexpected shape for predictive_variance: {var.shape}")
 
         labels_np = labels.cpu().numpy()
+        var_np = var.cpu().numpy()
         unique_labels = np.unique(labels_np)
-        grouped_vars = [var[labels_np == label].cpu().numpy() for label in unique_labels]
+        grouped_vars = [var_np[labels_np == label] for label in unique_labels]
 
         fig3, ax3 = plt.subplots(figsize=(8, 4))
         ax3.boxplot(grouped_vars, labels=[f"Class {int(c)}" for c in unique_labels])
