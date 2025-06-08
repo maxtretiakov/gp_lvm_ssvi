@@ -80,17 +80,22 @@ if __name__ == "__main__":
     Y, labels = load_Y(oil_data_path, cfg.device)
     fractions = load_oil_fractions(oil_data_path)
     
-    init_latents_and_z_dict = initialize_latents_and_z(Y, cfg)
-    train_results_dict = train_gp_lvm_ssvi(cfg, Y, init_latents_and_z_dict)
+    # train/test split
+    N = Y.shape[0]
+    train_idx, test_idx = train_test_split(np.arange(N), test_size=0.05, random_state=42)
+    Y_train = Y[train_idx]
     
-    metrics = evaluate_gp_lvm_model_metrics(train_results_dict, Y)
+    init_latents_and_z_dict = initialize_latents_and_z(Y_train, cfg)
+    train_results_dict = train_gp_lvm_ssvi(cfg, Y_train, init_latents_and_z_dict)
+    
+    metrics = evaluate_gp_lvm_model_metrics(train_results_dict, Y_train)
 
     RESULTS_ROOT = PROJECT_ROOT / "gp_lvm_ssvi_run_results"
     config_name = args.config.stem
     timestamp = datetime.datetime.now().strftime("%m_%d_%H_%M")
     save_results_path = RESULTS_ROOT / f"results_{config_name}_{timestamp}"
 
-    plot_oil_dataset_gp_lvm_results(train_results_dict, labels, fractions, save_results_path)
+    plot_oil_dataset_gp_lvm_results(train_results_dict, labels[train_idx], fractions[train_idx], save_results_path)
 
     metrics_path = save_results_path / f"{config_name}_metrics.json"
     save_metrics_json(metrics, metrics_path)
