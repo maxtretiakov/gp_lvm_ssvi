@@ -9,11 +9,13 @@ training:
   total_iters: 10000
   smoke_test: false
 
-model:
-  latent_dim: null     # => latent_dim = data_dim
-  n_inducing: 25
-  pca: false
+inducing:
+  n_inducing: 25                 # number of inducing points
+  selection: perm       # strategy: "perm" or "kmeans"
+  seed: 19              # fixed seed (can be null if not needed)
 
-init_x:
+init_latent_dist:
   method: default
   custom_path: null
+
+q_latent:   12        # Q  (= D for the oil data)
