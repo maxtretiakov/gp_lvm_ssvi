@@ -15,7 +15,7 @@ pip install -r requirements.txt
 ```
 
 
-### 2. ▶️ Run SSVI-based GP-LVM (main model)
+### 2. ▶️ Run GP-LVM SSVI (main model)
 
 ```bash
 python run_gp_lvm_ssvi.py --config ssvi_configs/original_ssvi_config.yaml
