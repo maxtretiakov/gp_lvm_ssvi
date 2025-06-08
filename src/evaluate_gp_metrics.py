@@ -39,13 +39,11 @@ def compute_nlpd(y_true: torch.Tensor, mean: torch.Tensor, variance: torch.Tenso
 
 
 def evaluate_gp_lvm_model_metrics(
-    results_dict: dict,
-    Y: torch.Tensor,
-    train_idx: np.ndarray,
-    test_idx: np.ndarray
-) -> dict:
+        results_dict: dict,
+        Y: torch.Tensor,
+    ) -> dict:
     """
-    Evaluate GP-LVM model by computing RMSE and NLPD on train/test split.
+    Evaluate GP-LVM model by computing RMSE and NLPD on all data (no train/test split).
 
     Parameters
     ----------
@@ -53,29 +51,20 @@ def evaluate_gp_lvm_model_metrics(
         Dictionary containing predictive mean and variance.
     Y : torch.Tensor
         Full dataset (N, D)
-    train_idx : np.ndarray
-        Indices for training data
-    test_idx : np.ndarray
-        Indices for testing data
 
     Returns
     -------
     dict
-        Dictionary with train/test RMSE and NLPD
+        Dictionary with RMSE and NLPD on full data
     """
     Y = Y.cpu()
     pred_mean = results_dict["predictive_mean"]
     pred_var = results_dict["predictive_variance"]
 
-    rmse_train = root_mean_squared_error(Y[train_idx].numpy(), pred_mean[train_idx].numpy())
-    rmse_test = root_mean_squared_error(Y[test_idx].numpy(), pred_mean[test_idx].numpy())
-
-    nlpd_train = compute_nlpd(Y[train_idx], pred_mean[train_idx], pred_var[train_idx])
-    nlpd_test = compute_nlpd(Y[test_idx], pred_mean[test_idx], pred_var[test_idx])
+    rmse = root_mean_squared_error(Y.numpy(), pred_mean.numpy())
+    nlpd = compute_nlpd(Y, pred_mean, pred_var)
 
     return {
-        "rmse_train": rmse_train,
-        "rmse_test": rmse_test,
-        "nlpd_train": nlpd_train,
-        "nlpd_test": nlpd_test
+        "rmse": rmse,
+        "nlpd": nlpd
     }

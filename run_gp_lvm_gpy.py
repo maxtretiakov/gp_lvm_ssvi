@@ -77,7 +77,7 @@ if __name__ == "__main__":
     init_latents_and_z_dict = initialize_latents_and_z(Y_train, cfg)    
     train_results_dict = train_bgplvm(cfg, Y_train, init_latents_and_z_dict)
     
-    metrics = evaluate_gp_lvm_model_metrics(train_results_dict, Y, train_idx, test_idx)
+    metrics = evaluate_gp_lvm_model_metrics(train_results_dict, Y_train)
     
     RESULTS_ROOT = PROJECT_ROOT / "gp_lvm_gpy_run_results"
     config_name = args.config.stem
