@@ -6,7 +6,7 @@ optimizer:
 
 training:
   batch_size: 128
-  total_iters: 10000
+  total_iters: 20000
   smoke_test: false
 
 inducing:
