@@ -1,5 +1,5 @@
 # general
-device: cuda          # "cuda", "cpu", or "auto"
+device: auto          # "cuda", "cpu", or "auto"
 debug: false          # print tensor shapes on first outer loop
 
 # learning rates
