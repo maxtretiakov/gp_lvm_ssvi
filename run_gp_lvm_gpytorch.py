@@ -2,7 +2,7 @@
 """
 Run bGPLVM training from a YAML config.
 
-$ python run_gp_lvm_gpy.py --config gpy_configs/original_gpy_config.yaml
+$ python run_gp_lvm_gpytorch.py --config gp_gpytorch_configs/original_gp_gpytorch_config.yaml
 """
 import argparse, yaml, dataclasses, torch
 from typing import Any, get_type_hints
@@ -11,8 +11,8 @@ import numpy as np
 import datetime
 from sklearn.model_selection import train_test_split
 
-from src.gp_lvm_gpy.gpy_dataclasses import BGPLVMConfig
-from src.gp_lvm_gpy.gpy_training import train_bgplvm
+from src.gp_lvm_gpytorch.gp_gpytorch_dataclasses import BGPLVMConfig
+from src.gp_lvm_gpytorch.gp_gpytorch_training import train_bgplvm
 from src.data_loaders.oil_data_loader import load_Y
 from src.oil_dataset_plot_core import load_oil_fractions, plot_oil_dataset_gp_lvm_results
 from src.helpers import initialize_latents_and_z
@@ -74,7 +74,7 @@ if __name__ == "__main__":
     
     metrics = evaluate_gp_lvm_model_metrics(train_results_dict, Y)
     
-    RESULTS_ROOT = PROJECT_ROOT / "gp_lvm_gpy_run_results"
+    RESULTS_ROOT = PROJECT_ROOT / "gp_lvm_gpytorch_run_results"
     config_name = args.config.stem
     timestamp = datetime.datetime.now().strftime("%m_%d_%H_%M")
     save_results_path = RESULTS_ROOT / f"results_{config_name}_{timestamp}"
