@@ -70,7 +70,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     cfg = load_config(args.config)
-    print(cfg)
+    print("CONFIG:",cfg)
     
     PROJECT_ROOT = Path(__file__).resolve().parent
     oil_data_path = PROJECT_ROOT / "oil_data"

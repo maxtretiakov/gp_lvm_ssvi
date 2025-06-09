@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import torch
 from typing import Optional, Literal
 
@@ -50,16 +50,17 @@ class Rho:
 class GPSSVIConfig:
     device: str
     debug: bool
-    lr: LR
-    training: Training
     jitter: float
     max_exp: float
-    rho: Rho
-    inducing: InducingConfig
     q_latent: int
-    init_latent_dist: InitXDistSsvi
+    lr: LR = field(default_factory=LR)
+    rho: Rho = field(default_factory=Rho)
+    training: Training = field(default_factory=Training)
+    inducing: InducingConfig = field(default_factory=InducingConfig)
+    init_latent_dist: InitXDistSsvi = field(default_factory=InitXDistSsvi)
 
     def device_resolved(self) -> torch.device:
         if self.device == "auto":
             return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        print("Config auto selected device:", self.device)
         return torch.device(self.device)

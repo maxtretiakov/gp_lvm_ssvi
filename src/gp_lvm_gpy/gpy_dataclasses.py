@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional, Literal
 import torch
 
@@ -30,15 +30,16 @@ class TrainingConfig:
 
 @dataclass
 class BGPLVMConfig:
-    inducing: InducingConfig
     q_latent: int
     device: str = "auto"  # "cuda", "cpu", or "auto"
     debug: bool = False
-    optimizer: OptimizerConfig = OptimizerConfig()
-    training: TrainingConfig = TrainingConfig()
-    init_latent_dist: InitX = InitX()
+    inducing: InducingConfig = field(default_factory=InducingConfig)
+    optimizer: OptimizerConfig = field(default_factory=OptimizerConfig)
+    training: TrainingConfig = field(default_factory=TrainingConfig)
+    init_latent_dist: InitX = field(default_factory=InitX)
 
     def device_resolved(self) -> torch.device:
         if self.device == "auto":
             return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        print("Config auto selected device:", self.device)
         return torch.device(self.device)
