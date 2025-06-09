@@ -2,7 +2,7 @@
 """
 Run bGPLVM training from a YAML config.
 
-$ python run_gp_lvm_gpytorch.py --config gpytorch_configs/original_gpytorch_config.yaml
+$ python run_gp_lvm_gpytorch.py --config gp_gpytorch_configs/original_gp_gpytorch_config.yaml
 """
 import argparse, yaml, dataclasses, torch
 from typing import Any, get_type_hints
