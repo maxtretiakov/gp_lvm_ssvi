@@ -28,7 +28,7 @@ python run_gp_lvm_ssvi.py --config ssvi_configs/original_ssvi_config.yaml
 ### 3. ▶️ Run GP-LVM (classic version using GPy)
 
 ```bash
-python run_gp_lvm_gpy.py --config gpy_configs/original_gpy_config.yaml
+python run_gp_lvm_gpytorch.py --config gp_gpytorch_configs/original_gp_gpytorch_config.yaml
 ```
 
 
@@ -45,7 +45,7 @@ bash jobs/run_ssvi_configs_in_the_folder.sh ssvi_configs
 #### ✅ GPy experiments
 
 ```bash
-bash jobs/run_gpy_configs_in_the_folder.sh gpy_configs
+bash jobs/run_gp_gpytorch_configs_in_the_folder.sh gp_gpytorch_configs
 ```
 
 These scripts iterate over all YAML files in the given folder and run each experiment sequentially.
