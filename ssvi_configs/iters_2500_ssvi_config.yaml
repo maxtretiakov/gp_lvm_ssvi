@@ -6,7 +6,8 @@ debug: false          # print tensor shapes on first outer loop
 lr:
   x:   1e-3           # Adam for {mu_x, log_s2x}
   hyp: 1e-3           # Adam for kernel hypers + Z
-
+  alpha: 5e-3         # Adam for alpha
+  
 # training schedule
 training:
   batch_size: 128     # B

@@ -15,7 +15,7 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
     # --------------------------- misc -----------------------------------
     DEV = config.device_resolved()
     DEBUG = config.debug
-    LR_X, LR_HYP, LR_ALPHA = config.lr.x, config.lr.hyp, 3e-2
+    LR_X, LR_HYP, LR_ALPHA = config.lr.x, config.lr.hyp, config.lr.alpha
     BATCH, T_TOTAL = config.training.batch_size, config.training.total_iters
     INNER0 = config.training.inner_iters.start
     INNER = config.training.inner_iters.after
@@ -236,8 +236,11 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
         betas=(0.5, 0.8),
         eps=1e-8
     )
-
-    log_alpha_prev = log_alpha.detach().clone()
+    
+    mu_x_prev   = mu_x.detach().clone()
+    Z_prev      = Z.detach().clone()
+    alpha_prev  = log_alpha.detach().clone()
+    
     iters, elbo_hist = [], []
     for t in trange(1, T_TOTAL + 1, ncols=100):
         Sigma_det = Sigma_u(C_u).detach()  # (D, M, M)
@@ -267,25 +270,55 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
         full_elbo = local_elbo - kl_u
         loss_hyp = -full_elbo
         loss_hyp.backward()
-        # Logging gradient of log_alpha
-        if t % 25 == 0:
+
+        if t % 50 == 0:
             with torch.no_grad():
-                grad_alpha = log_alpha.grad
-                print(f"log_alpha.grad norm: {grad_alpha.norm():.4e} "
-                      f"| min: {grad_alpha.min():.4e} | max: {grad_alpha.max():.4e}")
-                print("log_alpha  min/max:", log_alpha.min().item(),
-                      "/", log_alpha.max().item())
+                # 1) full ELBO and KL terms
+                kl_u   = compute_kl_u(m_u, C_u, K_MM, K_inv)
+                kl_x   = 0.5 * (((log_s2x.exp() + mu_x**2) - log_s2x) - 1).sum()
+                full_elbo = local_elbo - kl_u - kl_x
+                print(f"[{t:4d}] full ELBO={full_elbo:.4e} "
+                    f"(LL={local_elbo.item():.4e}, KL_U={kl_u.item():.4e}, KL_X={kl_x.item():.4e})")
+
+                # 2) noise vs signal
+                sf2   = safe_exp(log_sf2)
+                noise = noise_var()
+                print(f"    sf2={sf2:.3e}, noise={noise:.3e}, ratio={noise/sf2:.3f}")
+
+                # 3) hyperparameter values
+                print(f"    log_sf2={log_sf2.item():.3f}, "
+                    f"log_beta={log_beta_inv.item():.3f}, "
+                    f"log_alpha min/max={log_alpha.min():.3f}/{log_alpha.max():.3f}")
+
+                # 4) gradient norms for each block
+                def grad_norm(params):
+                    grads = [p.grad.flatten() for p in params if p.grad is not None]
+                    return torch.cat(grads).norm().item() if grads else 0.0
+                print(f"    grad_norm_x   ={grad_norm([mu_x, log_s2x]):.2e}, "
+                    f"grad_norm_hyp ={grad_norm([log_sf2, Z, log_beta_inv]):.2e}, "
+                    f"grad_norm_alpha={grad_norm([log_alpha]):.2e}")
+
+                # 5) parameter update norms
+                def step_norm(new, old):
+                    return (new - old).norm().item()
+                print(f"    step_norm_x   ={step_norm(mu_x, mu_x_prev):.2e}, "
+                    f"step_norm_hyp ={step_norm(Z, Z_prev):.2e}, "
+                    f"step_norm_alpha={step_norm(log_alpha, alpha_prev):.2e}")
+
+                # 6) inducing point distance stats
+                dZ = torch.pdist(Z)
+                print(f"    Z_distances min={dZ.min():.2e}, max={dZ.max():.2e}")
+
+                # update previous copies for next log
+                mu_x_prev.copy_(mu_x)
+                Z_prev.copy_(Z)
+                alpha_prev.copy_(log_alpha)
+
 
         opt_hyp.step()
         opt_alpha.step()
 
-        if t % 25 == 0:
-            with torch.no_grad():
-                post_step = (log_alpha - log_alpha_prev).norm()
-                print(f"log_alpha update norm: {post_step:.4e}")
-                log_alpha_prev.copy_(log_alpha)
-
-                # ----- natural-gradient step for q(U) --------------------------
+        # ----- natural-gradient step for q(U) --------------------------
         with torch.no_grad():
             for par, key in ((log_sf2, "log_sf2"),
                              (log_alpha, "log_alpha"),
