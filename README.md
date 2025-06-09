@@ -28,7 +28,7 @@ python run_gp_lvm_ssvi.py --config ssvi_configs/original_ssvi_config.yaml
 ### 3. ▶️ Run GP-LVM (classic version using GPy)
 
 ```bash
-python run_gp_lvm_gpytorch.py --config gp_gpytorch_configs/original_gp_gpytorch_config.yaml
+python run_gp_lvm_gpytorch.py --config gp_lvm_gpytorch_configs/original_gp_gpytorch_config.yaml
 ```
 
 
