@@ -30,10 +30,10 @@ class TrainingConfig:
 
 @dataclass
 class BGPLVMConfig:
-    inducing: InducingConfig
     q_latent: int
     device: str = "auto"  # "cuda", "cpu", or "auto"
     debug: bool = False
+    inducing: InducingConfig = field(default_factory=InducingConfig)
     optimizer: OptimizerConfig = field(default_factory=OptimizerConfig)
     training: TrainingConfig = field(default_factory=TrainingConfig)
     init_latent_dist: InitX = field(default_factory=InitX)

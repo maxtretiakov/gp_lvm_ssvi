@@ -50,13 +50,13 @@ class Rho:
 class GPSSVIConfig:
     device: str
     debug: bool
-    lr: LR
-    training: Training = field(default_factory=Training)
     jitter: float
     max_exp: float
-    rho: Rho
-    inducing: InducingConfig = field(default_factory=InducingConfig)
     q_latent: int
+    lr: LR = field(default_factory=LR)
+    rho: Rho = field(default_factory=Rho)
+    training: Training = field(default_factory=Training)
+    inducing: InducingConfig = field(default_factory=InducingConfig)
     init_latent_dist: InitXDistSsvi = field(default_factory=InitXDistSsvi)
 
     def device_resolved(self) -> torch.device:
