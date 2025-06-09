@@ -1,0 +1,41 @@
+# general
+device: cuda          # "cuda", "cpu", or "auto"
+debug: false          # print tensor shapes on first outer loop
+
+# learning rates
+lr:
+  x:   1e-3           # Adam for {mu_x, log_s2x}
+  hyp: 1e-3           # Adam for kernel hypers + Z
+  alpha: 5e-3         # Adam for alpha
+
+# training schedule
+training:
+  batch_size: 128     # B
+  total_iters: 1000    # T_TOTAL
+  inner_iters:
+    start:  40        # INNER0 (first   inner_switch iters)
+    after:  30        # INNER  (after   inner_switch)
+    switch: 50        # iteration number to switch
+
+# init mu_x, log_sigma2_x
+init_latent_dist:
+  method: default
+  custom_path: ""
+
+# inducing points
+inducing:
+  n_inducing: 64                 # number of inducing points
+  selection: perm       # strategy: "perm" or "kmeans"
+  seed: 19              # fixed seed (can be null if not needed)
+
+# numerical stability
+jitter:  5e-6
+max_exp: 60.0
+
+# SVI step size rho(t) = (t0 + t)^(-k)
+rho:
+  t0: 100.0
+  k:  0.6
+
+# model structure
+q_latent:   12        # Q  (= D for the oil data)
