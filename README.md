@@ -45,7 +45,7 @@ bash jobs/run_ssvi_configs_in_the_folder.sh ssvi_configs
 #### ✅ GPy experiments
 
 ```bash
-bash jobs/run_gp_gpytorch_configs_in_the_folder.sh gp_gpytorch_configs
+bash jobs/run_gp_lvm_gpytorch_configs_in_the_folder.sh gp_gpytorch_configs
 ```
 
 These scripts iterate over all YAML files in the given folder and run each experiment sequentially.
