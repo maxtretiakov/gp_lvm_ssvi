@@ -6,8 +6,8 @@ import json
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.mlls import VariationalELBO
 
-from src.gp_lvm_gpy.gpy_model import bGPLVM
-from src.gp_lvm_gpy.gpy_dataclasses import BGPLVMConfig
+from src.gp_lvm_gpytorch.gp_gpytorch_model import bGPLVM
+from src.gp_lvm_gpytorch.gp_gpytorch_dataclasses import BGPLVMConfig
 
 
 def load_init_x(init_x_config, N, latent_dim):
