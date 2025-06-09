@@ -25,7 +25,7 @@ python run_gp_lvm_ssvi.py --config ssvi_configs/original_ssvi_config.yaml
 ```
 
 
-### 3. ▶️ Run GP-LVM (classic version using GPy)
+### 3. ▶️ Run GP-LVM (classic version using GpyTorch)
 
 ```bash
 python run_gp_lvm_gpytorch.py --config gp_lvm_gpytorch_configs/original_gp_gpytorch_config.yaml
@@ -42,7 +42,7 @@ To automatically run all configuration files (`.yaml`) from a folder:
 bash jobs/run_ssvi_configs_in_the_folder.sh ssvi_configs
 ```
 
-#### ✅ GPy experiments
+#### ✅ GpyTorch experiments
 
 ```bash
 bash jobs/run_gp_lvm_gpytorch_configs_in_the_folder.sh gp_gpytorch_configs
@@ -74,4 +74,4 @@ init:
   custom_path: ./x_dist_init_inputs/oil_latents.json
 ```
 
-Both models (`run_gp_lvm_ssvi.py` and `run_gp_lvm_gpy.py`) support this custom latent initialization.
+Both models (`run_gp_lvm_ssvi.py` and `run_gp_lvm_gpytorch.py`) support this custom latent initialization.
