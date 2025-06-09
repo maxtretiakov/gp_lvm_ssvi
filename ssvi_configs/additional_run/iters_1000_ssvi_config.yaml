@@ -8,6 +8,7 @@ lr:
   hyp: 1e-3           # Adam for kernel hypers + Z
   alpha: 5e-3         # Adam for alpha
 
+
 # training schedule
 training:
   batch_size: 128     # B
