@@ -17,7 +17,7 @@ find "$PROJECT_ROOT/$CONFIG_DIR" -type f -name "*.yaml" -not -path "*/.ipynb_che
   echo "Running experiment with config: $config_file"
 
   # Run the Python script from the project root with the found YAML config
-  (cd "$PROJECT_ROOT" && python run_gp_lvm_gpy.py --config "$config_file")
+  (cd "$PROJECT_ROOT" && python run_gp_lvm_gpytorch.py --config "$config_file")
 
   echo "Finished experiment with config: $config_file"
 done
