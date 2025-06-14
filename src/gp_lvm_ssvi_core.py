@@ -23,6 +23,8 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
     CLIP_QUAD, GR_CLIP =  1e6, 20.0
     BOUNDS = {"log_sf2": (-8.0, 8.0), "log_alpha": (-20.0, 20.0),
               "log_beta": (-8.0, 5.0), "log_s2x": (-10.0, 10.0)}
+    
+    U_SAMPLES = 5
 
     rho = lambda t, t0=config.rho.t0, k=0.6: (t0 + t) ** (-config.rho.k)  # SVI step size
     safe_exp = lambda x: torch.exp(torch.clamp(x, max=MAX_EXP))
@@ -250,8 +252,14 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
         inner_iters = INNER0 if t <= 50 else INNER
         for _ in range(inner_iters):
             opt_x.zero_grad(set_to_none=True)
-            local_elbo_batch_mean_x, _, _ = local_step(idx, sample_U(m_u, C_u),
-                                                       Sigma_det, False, dbg=(t == 1))
+            elbo_acc = 0.0
+            for _ in range(U_SAMPLES):
+                U_smpl = sample_U(m_u, C_u)
+                elbo_b, _, _ = local_step(
+                    idx, U_smpl, Sigma_det, False, dbg=(t == 1)
+                )
+                elbo_acc += elbo_b
+            local_elbo_batch_mean_x = elbo_acc / U_SAMPLES
             loss_x = -local_elbo_batch_mean_x * N
             loss_x.backward(retain_graph=True)
             torch.nn.utils.clip_grad_norm_([mu_x, log_s2x], GR_CLIP)
@@ -263,8 +271,24 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
         opt_hyp.zero_grad(set_to_none=True)
         opt_alpha.zero_grad(set_to_none=True)
         K_MM, K_inv = update_K_and_inv()
-        U_sample = sample_U(m_u, C_u)  # (D, M)
-        local_elbo_batch_mean, r_b, Q_b = local_step(idx, U_sample, Sigma_u(C_u), True)
+        local_elbo_acc = 0.0
+        r_acc = torch.zeros(D, M, device=DEV)
+        Q_acc = torch.zeros(D, M, M, device=DEV)
+        diff_acc = torch.zeros(D, M, device=DEV)
+        for _ in range(U_SAMPLES):            
+            U_sample = sample_U(m_u, C_u)     # (D, M)
+            elbo_b, r_b_s, Q_b_s = local_step(idx,
+                                              U_sample,
+                                              Sigma_u(C_u),
+                                              True)
+            local_elbo_acc += elbo_b
+            r_acc  += r_b_s.sum(0)
+            Q_acc  += Q_b_s.sum(0)
+            diff_acc += (U_sample - m_u)
+        local_elbo_batch_mean = local_elbo_acc / U_SAMPLES
+        r_sum = r_acc / U_SAMPLES                              
+        Q_sum = Q_acc / U_SAMPLES
+        diff_U_avg = diff_acc / U_SAMPLES                              
         local_elbo = local_elbo_batch_mean * N
         kl_u = compute_kl_u(m_u, C_u, K_MM, K_inv)
         full_elbo = local_elbo - kl_u
@@ -329,9 +353,7 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
             Lambda_prior.copy_((-0.5 * K_inv).expand_as(Lambda_prior))  # (D, M, M)
 
             h_nat, Lambda_nat = natural_from_moment(m_u, C_u)  # (D,M), (D,M,M)
-            r_sum, Q_sum = r_b.sum(0), Q_b.sum(0)  # (D,M), (D,M,M)
-            diff_U = (U_sample - m_u).unsqueeze(-1)  # (D, M, 1)
-            r_tilde = r_sum + 2.0 * (Q_sum @ diff_U).squeeze(-1)  # (D, M)
+            r_tilde = r_sum + 2.0 * (Q_sum @ diff_U_avg.unsqueeze(-1)).squeeze(-1)  # (D, M)
 
             lr = rho(t)
             scale = N / idx.size(0)
