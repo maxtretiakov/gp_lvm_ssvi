@@ -67,11 +67,11 @@ def train_bgplvm(cfg: BGPLVMConfig, Y: torch.Tensor, init_latents_and_z_dict: di
                 log_s2x = 2 * model.q_x_std.log()
                 dist = model(latent_mu)
                 q_u = model.q_u_dist
-
-                ll_val = mll(dist, Y.T).sum().item()
+                
+                ll_val = likelihood.expected_log_prob(Y.T, dist).sum().item()
+                klu_val = model.kl_u().item()
                 klx_val = 0.5 * ((latent_mu ** 2 + log_s2x.exp()) - log_s2x - 1).sum().item()
-                klu_val = q_u.kl_divergence().sum().item()
-                full_elbo = ll_val - klx_val - klu_val
+                full_elbo = ll_val - klu_val - klx_val
 
                 elbo_hist.append(full_elbo)
                 ll_hist.append(ll_val)

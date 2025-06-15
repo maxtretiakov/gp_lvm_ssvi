@@ -73,3 +73,11 @@ class bGPLVM(BayesianGPLVM):
         valid_indices = np.arange(self.n)
         batch_indices = np.random.choice(valid_indices, size=batch_size, replace=False)
         return np.sort(batch_indices)
+    
+    def kl_u(self):
+        """
+        Computes KL[q(U) || p(U)] for multi-output block-diagonal case.
+        """
+        p_u = self.variational_strategy.prior_distribution
+        q_u = self.q_u_dist
+        return torch.distributions.kl.kl_divergence(q_u, p_u).sum()
