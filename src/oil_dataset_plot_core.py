@@ -22,6 +22,87 @@ def load_oil_fractions(data_dir: Path) -> np.ndarray:
 
     return w_full
 
+def plot_single_curve_from_results(
+    results: dict,
+    x_key: str,
+    y_key: str,
+    label: str,
+    save_path: Path,
+    filename: str,
+    title: str = "Curve",
+):
+    """
+    Generic helper to plot a single curve from a results dict.
+
+    Args:
+        results: dict containing data
+        x_key: str, key for x-axis values (e.g., 'elbo_iters')
+        y_key: str, key for y-axis values to plot
+        label: str, label for the curve
+        save_path: Path, folder where to save
+        filename: str, filename of the figure (e.g., 'll_vals.png')
+        title: str, plot title
+    """
+    save_path.mkdir(parents=True, exist_ok=True)
+
+    x = results[x_key]
+    y = results[y_key]
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    ax.plot(x, y, label=label, marker="o")
+    ax.set_xlabel(x_key)
+    ax.set_ylabel(label)
+    ax.set_title(title)
+    ax.grid(ls=":")
+    ax.legend()
+    fig.tight_layout()
+
+    out_file = save_path / filename
+    fig.savefig(out_file, dpi=300)
+    print(f"Saved curve plot to: {out_file}")
+
+    plt.close(fig)
+
+def plot_gp_lvm_final_extra_curves(results_dict: dict, save_dir: Path):
+    """
+    Plots extra diagnostic curves for final results:
+    Log Likelihood, KL_X, KL_U.
+
+    Args:
+        results_dict: dict with training history keys
+        save_dir: Path to save the plots
+    """
+    plot_single_curve_from_results(
+        results_dict,
+        x_key="elbo_iters",
+        y_key="ll_vals",
+        label="Log Likelihood",
+        save_path=save_dir,
+        filename="log_lik_iters.png",
+        title="Log Likelihood over iterations",
+    )
+
+    plot_single_curve_from_results(
+        results_dict,
+        x_key="elbo_iters",
+        y_key="klx_vals",
+        label="KL_X",
+        save_path=save_dir,
+        filename="klx_iters.png",
+        title="KL_X over iterations",
+    )
+
+    plot_single_curve_from_results(
+        results_dict,
+        x_key="elbo_iters",
+        y_key="klu_vals",
+        label="KL_U",
+        save_path=save_dir,
+        filename="klu_iters.png",
+        title="KL_U over iterations",
+    )
+
+
 
 def plot_oil_dataset_gp_lvm_results(results: dict, labels, fractions, save_path: Path):
     save_path.mkdir(parents=True, exist_ok=True)

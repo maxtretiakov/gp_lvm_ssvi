@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 import torch
 
-from src.oil_dataset_plot_core import plot_oil_dataset_gp_lvm_results
+from src.oil_dataset_plot_core import plot_oil_dataset_gp_lvm_results, plot_gp_lvm_final_extra_curves
 from src.evaluate_gp_metrics import evaluate_gp_lvm_model_metrics, save_metrics_json
 
 
@@ -41,6 +41,7 @@ def save_final_results(results_dict, labels, fractions, metrics, config_name, sa
     torch.save(results_dict["predictive_variance"], save_dir / "predictive_variance.pt")
 
     plot_oil_dataset_gp_lvm_results(results_dict, labels, fractions, save_dir)
+    plot_gp_lvm_final_extra_curves(results_dict, save_dir)
 
     metrics_path = save_dir / f"{config_name}_metrics.json"
     save_metrics_json(metrics, metrics_path)
