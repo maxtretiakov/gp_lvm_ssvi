@@ -63,6 +63,7 @@ def train_bgplvm(cfg: BGPLVMConfig, Y: torch.Tensor, init_latents_and_z_dict: di
         if i % 2000 == 0 and i > 0:
             with torch.no_grad():
                 q_u = model.q_u_dist
+                log_s2x = 2 * model.X.q_sigma.log().detach().cpu()
                 latent_mu = model.X.q_mu
                 dist = model(latent_mu)
                 snapshot = {
@@ -73,6 +74,7 @@ def train_bgplvm(cfg: BGPLVMConfig, Y: torch.Tensor, init_latents_and_z_dict: di
                     "Z": model.inducing_inputs[0].detach().cpu().clone(),
                     "m_u": q_u.variational_mean.detach().cpu().clone(),
                     "log_sf2": model.covar_module.outputscale.log().item(),
+                    "log_s2x": log_s2x,
                     "predictive_mean": dist.mean.T.detach().cpu().clone(),
                     "predictive_variance": dist.variance.T.detach().cpu().clone(),
                 }
@@ -80,6 +82,7 @@ def train_bgplvm(cfg: BGPLVMConfig, Y: torch.Tensor, init_latents_and_z_dict: di
         
     with torch.no_grad():
         q_u = model.q_u_dist
+        log_s2x = 2 * model.X.q_sigma.log().detach().cpu()
         latent_mu = model.X.q_mu
         dist = model(latent_mu)  # (batch_shape=D)
         
@@ -91,6 +94,7 @@ def train_bgplvm(cfg: BGPLVMConfig, Y: torch.Tensor, init_latents_and_z_dict: di
     "Z": model.inducing_inputs[0].detach().cpu(),
     "m_u": q_u.variational_mean.detach().cpu(),  
     "log_sf2": model.covar_module.outputscale.log().item(),  # log(signal variance)
+    "log_s2x": log_s2x,
     "predictive_mean": dist.mean.T.cpu(),      # (N, D)
     "predictive_variance": dist.variance.T.cpu(),  # (N, D)
     "snapshots": snapshots,
