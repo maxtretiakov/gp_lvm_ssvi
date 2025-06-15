@@ -43,7 +43,8 @@ def train_bgplvm(cfg: BGPLVMConfig, Y: torch.Tensor, init_latents_and_z_dict: di
 
     iters = 4 if cfg.training.smoke_test else cfg.training.total_iters
     batch_size = cfg.training.batch_size
-    loss_list, iters_list   = [], []
+    batch_loss_list , iters_list   = [], []
+    elbo_hist, ll_hist, klx_hist, klu_hist = [], [], [], []
     snapshots = {}
 
     iterator = trange(iters, leave=True)
@@ -54,12 +55,29 @@ def train_bgplvm(cfg: BGPLVMConfig, Y: torch.Tensor, init_latents_and_z_dict: di
         sample_batch = sample[batch_index]
         output_batch = model(sample_batch)
         loss = -mll(output_batch, Y[batch_index].T).sum()
-        loss_list.append(loss.item())
+        batch_loss_list.append(loss.item())
         iterator.set_description(f"Loss: {loss.item():.2f}, Iter: {i}")
         loss.backward()
         optimizer.step()
         
-        iters_list.append(i)
+        if i % 25 == 0 or i == 1:
+            with torch.no_grad():
+                iters_list.append(i)
+                latent_mu = model.X.q_mu
+                log_s2x = 2 * model.q_x_std.log()
+                dist = model(latent_mu)
+                q_u = model.q_u_dist
+
+                ll_val = mll(dist, Y.T).sum().item()
+                klx_val = 0.5 * ((latent_mu ** 2 + log_s2x.exp()) - log_s2x - 1).sum().item()
+                klu_val = q_u.kl_divergence().sum().item()
+                full_elbo = ll_val - klx_val - klu_val
+
+                elbo_hist.append(full_elbo)
+                ll_hist.append(ll_val)
+                klx_hist.append(klx_val)
+                klu_hist.append(klu_val)
+                
         if i % 2000 == 0 and i > 0:
             with torch.no_grad():
                 q_u = model.q_u_dist
@@ -69,8 +87,12 @@ def train_bgplvm(cfg: BGPLVMConfig, Y: torch.Tensor, init_latents_and_z_dict: di
                 snapshot = {
                     "mu_x": latent_mu.detach().cpu().clone(),
                     "log_alpha": -2 * model.covar_module.base_kernel.lengthscale.log().squeeze().detach().cpu().clone(),
+                    "batch_elbo_vals": [-v for v in batch_loss_list],
                     "elbo_iters": iters_list.copy(),
-                    "elbo_vals": [-v for v in loss_list],
+                    "elbo_vals": elbo_hist,
+                    "ll_vals":   ll_hist,
+                    "klx_vals":  klx_hist,
+                    "klu_vals":  klu_hist,
                     "Z": model.inducing_inputs[0].detach().cpu().clone(),
                     "m_u": q_u.variational_mean.detach().cpu().clone(),
                     "C_u": q_u.chol_variational_covar.detach().cpu().clone(),
@@ -90,8 +112,12 @@ def train_bgplvm(cfg: BGPLVMConfig, Y: torch.Tensor, init_latents_and_z_dict: di
     results_dict = {
     "mu_x": model.X.q_mu.detach().cpu(),  # (N, Q)
     "log_alpha": -2 * model.covar_module.base_kernel.lengthscale.log().squeeze().detach().cpu(),  # (Q,)
+    "batch_elbo_vals": [-v for v in batch_loss_list],
     "elbo_iters": iters_list,
-    "elbo_vals": [-v for v in loss_list],
+    "elbo_vals": elbo_hist,
+    "ll_vals":   ll_hist,
+    "klx_vals":  klx_hist,
+    "klu_vals":  klu_hist,
     "Z": model.inducing_inputs[0].detach().cpu(),
     "m_u": q_u.variational_mean.detach().cpu(),
     "C_u": q_u.chol_variational_covar.detach().cpu().clone(),  
