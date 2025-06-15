@@ -243,6 +243,7 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
     Z_prev      = Z.detach().clone()
     alpha_prev  = log_alpha.detach().clone()
     
+    snapshots = {}
     iters, full_elbo_hist, local_elbo_hist, ll_hist, klx_hist, klu_hist = [], [], [], [], [], []
     for t in trange(1, T_TOTAL + 1, ncols=100):
         Sigma_det = Sigma_u(C_u).detach()  # (D, M, M)
@@ -280,7 +281,7 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
                 KLx_batch = (klx_b * N).item()
                 kl_u_val  = kl_u.item()
                 full_elbo = LL_batch - KLx_batch - kl_u_val
-                print(f"BATCH FULL ELBO @ {t:3d}: {full_elbo:.4e}  "
+                print(f"\nBATCH FULL ELBO @ {t:3d}: {full_elbo:.4e}  "
                     f"LL={LL_batch:.4e}  KL_X={KLx_batch:.4e}  KL_U={kl_u_val:.4e}")
 
                 # 2) noise vs signal
@@ -360,6 +361,27 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
             klu_hist.append(kl_u_full)
             print(f"\nDATASET FULL ELBO @ {t:3d}: {full_elbo:.4e}  "
                   f"LL={LL_full:.4e}  KL_X={KLx_full:.4e}  KL_U={kl_u_full:.4e}")
+            
+        if t % 250 == 0:
+            with torch.no_grad():
+                A = k_se(mu_x, Z, log_sf2, log_alpha) @ K_inv  # (N, M)
+                predictive_mean_snap = A @ m_u.T  # (N, D)
+                predictive_variance_snap = torch.stack([(A @ Sigma_u(C_u)[d] * A).sum(-1) for d in range(D)], dim=1)  # (N, D)
+                snapshot = {
+                    "mu_x": mu_x.detach().cpu().clone(),
+                    "log_s2x": log_s2x.detach().cpu().clone(),
+                    "Z": Z.detach().cpu().clone(),
+                    "log_sf2": log_sf2.item(),
+                    "log_alpha": log_alpha.detach().cpu().clone(),
+                    "log_beta_inv": log_beta_inv.item(),
+                    "m_u": m_u.detach().cpu().clone(),
+                    "C_u": C_u.detach().cpu().clone(),
+                    "elbo_iters": iters,
+                    "elbo_vals": full_elbo_hist,
+                    "predictive_mean": predictive_mean_snap.cpu(),
+                    "predictive_variance": predictive_variance_snap.cpu(),
+                }
+                snapshots[t] = snapshot
 
     results_dict = {
     "mu_x": mu_x.detach().cpu(),  # (N, Q)
@@ -376,6 +398,7 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
     "ll_vals":   ll_hist,
     "klx_vals":  klx_hist,
     "klu_vals":  klu_hist,
+    "snapshots": snapshots
     }
     
     with torch.no_grad():
