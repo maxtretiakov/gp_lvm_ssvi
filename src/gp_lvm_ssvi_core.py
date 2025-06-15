@@ -281,7 +281,7 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
                 KLx_batch = (klx_b * N).item()
                 kl_u_val  = kl_u.item()
                 full_elbo = LL_batch - KLx_batch - kl_u_val
-                print(f"BATCH FULL ELBO @ {t:3d}: {full_elbo:.4e}  "
+                print(f"\nBATCH FULL ELBO @ {t:3d}: {full_elbo:.4e}  "
                     f"LL={LL_batch:.4e}  KL_X={KLx_batch:.4e}  KL_U={kl_u_val:.4e}")
 
                 # 2) noise vs signal
@@ -373,6 +373,8 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
                     "log_beta_inv": log_beta_inv.item(),
                     "m_u": m_u.detach().cpu().clone(),
                     "C_u": C_u.detach().cpu().clone(),
+                    "elbo_iters": iters,
+                    "elbo_vals": full_elbo_hist,
                 }
                 snapshots[t] = snapshot
 
