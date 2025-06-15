@@ -76,8 +76,37 @@ class bGPLVM(BayesianGPLVM):
     
     def kl_u(self):
         """
-        Computes KL[q(U) || p(U)] for multi-output block-diagonal case.
+        Correct manual computation of KL[q(U) || p(U)]
+        for block-diagonal inducing variables.
         """
-        p_u = self.variational_strategy.prior_distribution
         q_u = self.q_u_dist
-        return torch.distributions.kl.kl_divergence(q_u, p_u).sum()
+        p_u = self.variational_strategy.prior_distribution
+
+        # q_u: CholeskyVariationalDistribution -> mean & chol
+        mean_q = q_u.variational_mean      # (D, M)
+        chol_q = q_u.chol_variational_covar  # (D, M, M)
+
+        # p_u: MultivariateNormal -> zero mean, covar
+        covar_p = p_u.covariance_matrix    # (D, M, M)
+
+        kl_list = []
+        for d in range(mean_q.shape[0]):
+            mq = mean_q[d]  # (M,)
+            Lq = chol_q[d]  # (M, M)
+            cov_q = Lq @ Lq.T
+            cov_p = covar_p[d]
+
+            # Use standard multivariate normal KL formula
+            Lp = torch.linalg.cholesky(cov_p)
+            inv_covar_p = torch.cholesky_inverse(Lp)
+
+            trace_term = torch.trace(inv_covar_p @ cov_q)
+            quad_term = mq @ inv_covar_p @ mq
+            logdet_p = 2.0 * torch.log(torch.diagonal(Lp)).sum()
+            logdet_q = 2.0 * torch.log(torch.diagonal(Lq)).sum()
+            M = mq.shape[0]
+
+            kl = 0.5 * (trace_term + quad_term - M + logdet_p - logdet_q)
+            kl_list.append(kl)
+
+        return torch.stack(kl_list).sum()
