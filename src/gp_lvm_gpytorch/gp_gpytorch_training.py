@@ -43,7 +43,8 @@ def train_bgplvm(cfg: BGPLVMConfig, Y: torch.Tensor, init_latents_and_z_dict: di
 
     iters = 4 if cfg.training.smoke_test else cfg.training.total_iters
     batch_size = cfg.training.batch_size
-    loss_list = []
+    loss_list, iters_list   = [], []
+    snapshots = {}
 
     iterator = trange(iters, leave=True)
     for i in iterator:
@@ -58,6 +59,25 @@ def train_bgplvm(cfg: BGPLVMConfig, Y: torch.Tensor, init_latents_and_z_dict: di
         loss.backward()
         optimizer.step()
         
+        iters_list.append(i)
+        if i % 1000 == 0 and i > 0:
+            with torch.no_grad():
+                q_u = model.q_u_dist
+                latent_mu = model.X.q_mu
+                dist = model(latent_mu)
+                snapshot = {
+                    "mu_x": latent_mu.detach().cpu().clone(),
+                    "log_alpha": -2 * model.covar_module.base_kernel.lengthscale.log().squeeze().detach().cpu().clone(),
+                    "elbo_iters": iters_list.copy(),
+                    "elbo_vals": [-v for v in loss_list],
+                    "Z": model.inducing_inputs[0].detach().cpu().clone(),
+                    "m_u": q_u.variational_mean.detach().cpu().clone(),
+                    "log_sf2": model.covar_module.outputscale.log().item(),
+                    "predictive_mean": dist.mean.T.detach().cpu().clone(),
+                    "predictive_variance": dist.variance.T.detach().cpu().clone(),
+                }
+                snapshots[i] = snapshot
+        
     with torch.no_grad():
         q_u = model.q_u_dist
         latent_mu = model.X.q_mu
@@ -66,13 +86,14 @@ def train_bgplvm(cfg: BGPLVMConfig, Y: torch.Tensor, init_latents_and_z_dict: di
     results_dict = {
     "mu_x": model.X.q_mu.detach().cpu(),  # (N, Q)
     "log_alpha": -2 * model.covar_module.base_kernel.lengthscale.log().squeeze().detach().cpu(),  # (Q,)
-    "elbo_iters": list(range(len(loss_list))),
+    "elbo_iters": iters_list,
     "elbo_vals": [-v for v in loss_list],
     "Z": model.inducing_inputs[0].detach().cpu(),
     "m_u": q_u.variational_mean.detach().cpu(),  
     "log_sf2": model.covar_module.outputscale.log().item(),  # log(signal variance)
     "predictive_mean": dist.mean.T.cpu(),      # (N, D)
     "predictive_variance": dist.variance.T.cpu(),  # (N, D)
+    "snapshots": snapshots,
     }
 
     return results_dict
