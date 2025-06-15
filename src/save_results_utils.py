@@ -34,7 +34,7 @@ def save_final_results(results_dict, labels, fractions, metrics, config_name, sa
         "log_alpha", "log_beta_inv", "m_u", "C_u"
     ]
     final_json = tensor_dict_to_json({k: results_dict[k] for k in final_json_keys})
-    with open(save_dir / "final_result.json", "w") as f:
+    with open(save_dir / "final_model_result.json", "w") as f:
         json.dump(final_json, f, indent=2)
 
     torch.save(results_dict["predictive_mean"], save_dir / "predictive_mean.pt")
