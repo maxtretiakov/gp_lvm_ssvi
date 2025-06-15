@@ -63,7 +63,7 @@ def train_bgplvm(cfg: BGPLVMConfig, Y: torch.Tensor, init_latents_and_z_dict: di
         if i % 2000 == 0 and i > 0:
             with torch.no_grad():
                 q_u = model.q_u_dist
-                log_s2x = 2 * model.X.q_sigma.log().detach().cpu()
+                log_s2x = 2 * model.q_x_std.log().detach().cpu()
                 latent_mu = model.X.q_mu
                 dist = model(latent_mu)
                 snapshot = {
@@ -82,7 +82,7 @@ def train_bgplvm(cfg: BGPLVMConfig, Y: torch.Tensor, init_latents_and_z_dict: di
         
     with torch.no_grad():
         q_u = model.q_u_dist
-        log_s2x = 2 * model.X.q_sigma.log().detach().cpu()
+        log_s2x = 2 * model.q_x_std.log().detach().cpu()
         latent_mu = model.X.q_mu
         dist = model(latent_mu)  # (batch_shape=D)
         
