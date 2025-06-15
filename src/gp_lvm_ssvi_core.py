@@ -243,6 +243,7 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
     Z_prev      = Z.detach().clone()
     alpha_prev  = log_alpha.detach().clone()
     
+    snapshots = {}
     iters, full_elbo_hist, local_elbo_hist, ll_hist, klx_hist, klu_hist = [], [], [], [], [], []
     for t in trange(1, T_TOTAL + 1, ncols=100):
         Sigma_det = Sigma_u(C_u).detach()  # (D, M, M)
@@ -360,6 +361,20 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
             klu_hist.append(kl_u_full)
             print(f"\nDATASET FULL ELBO @ {t:3d}: {full_elbo:.4e}  "
                   f"LL={LL_full:.4e}  KL_X={KLx_full:.4e}  KL_U={kl_u_full:.4e}")
+            
+        if t % 250 == 0:
+            with torch.no_grad():
+                snapshot = {
+                    "mu_x": mu_x.detach().cpu().clone(),
+                    "log_s2x": log_s2x.detach().cpu().clone(),
+                    "Z": Z.detach().cpu().clone(),
+                    "log_sf2": log_sf2.item(),
+                    "log_alpha": log_alpha.detach().cpu().clone(),
+                    "log_beta_inv": log_beta_inv.item(),
+                    "m_u": m_u.detach().cpu().clone(),
+                    "C_u": C_u.detach().cpu().clone(),
+                }
+                snapshots[t] = snapshot
 
     results_dict = {
     "mu_x": mu_x.detach().cpu(),  # (N, Q)
@@ -376,6 +391,7 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
     "ll_vals":   ll_hist,
     "klx_vals":  klx_hist,
     "klu_vals":  klu_hist,
+    "snapshots": snapshots
     }
     
     with torch.no_grad():
