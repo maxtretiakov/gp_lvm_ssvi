@@ -364,6 +364,9 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
             
         if t % 250 == 0:
             with torch.no_grad():
+                A = k_se(mu_x, Z, log_sf2, log_alpha) @ K_inv  # (N, M)
+                predictive_mean_snap = A @ m_u.T  # (N, D)
+                predictive_variance_snap = torch.stack([(A @ Sigma_u(C_u)[d] * A).sum(-1) for d in range(D)], dim=1)  # (N, D)
                 snapshot = {
                     "mu_x": mu_x.detach().cpu().clone(),
                     "log_s2x": log_s2x.detach().cpu().clone(),
@@ -375,6 +378,8 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
                     "C_u": C_u.detach().cpu().clone(),
                     "elbo_iters": iters,
                     "elbo_vals": full_elbo_hist,
+                    "predictive_mean": predictive_mean_snap.cpu(),
+                    "predictive_variance": predictive_variance_snap.cpu(),
                 }
                 snapshots[t] = snapshot
 
