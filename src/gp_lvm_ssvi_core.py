@@ -376,10 +376,10 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
                     "log_beta_inv": log_beta_inv.item(),
                     "m_u": m_u.detach().cpu().clone(),
                     "C_u": C_u.detach().cpu().clone(),
-                    "elbo_iters": iters,
-                    "elbo_vals": full_elbo_hist,
-                    "predictive_mean": predictive_mean_snap.cpu(),
-                    "predictive_variance": predictive_variance_snap.cpu(),
+                    "elbo_iters": list(iters),
+                    "elbo_vals": list(full_elbo_hist), 
+                    "predictive_mean": predictive_mean_snap.detach().cpu().clone(),
+                    "predictive_variance": predictive_variance_snap.detach().cpu().clone(),
                 }
                 snapshots[t] = snapshot
 

@@ -8,6 +8,7 @@ from typing import get_type_hints
 import argparse, yaml, torch
 import dataclasses
 import datetime
+import json
 from pathlib import Path
 from typing import Any, Dict
 import numpy as np
@@ -90,6 +91,9 @@ if __name__ == "__main__":
     save_results_path = RESULTS_ROOT / f"results_{config_name}_{timestamp}"
 
     save_results_path.mkdir(parents=True, exist_ok=True)
+    
+    with open(save_results_path / f"config_used_{timestamp}.json", "w", encoding="utf-8") as f:
+        json.dump(dataclasses.asdict(cfg), f, indent=2)
 
     save_all_results(
         train_results_dict,
