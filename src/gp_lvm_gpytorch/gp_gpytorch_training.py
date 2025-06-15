@@ -60,7 +60,7 @@ def train_bgplvm(cfg: BGPLVMConfig, Y: torch.Tensor, init_latents_and_z_dict: di
         optimizer.step()
         
         iters_list.append(i)
-        if i % 1000 == 0 and i > 0:
+        if i % 2000 == 0 and i > 0:
             with torch.no_grad():
                 q_u = model.q_u_dist
                 latent_mu = model.X.q_mu
