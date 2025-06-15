@@ -214,7 +214,7 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
         outer = A_exp.transpose(-1, -2) * A_exp  # (B, 1, M, M)
         outer = outer.unsqueeze(1)  # (B, 1, M, M)
         outer = outer.expand(B, D, M, M)  # (B, D, M, M)
-        Q = (-0.5 / sigma2_unsq).unsqueeze(-1).unsqueeze(-1) * outer  # (B, D, M, M)
+        Q_mat = (-0.5 / sigma2_unsq).unsqueeze(-1).unsqueeze(-1) * outer  # (B, D, M, M)
 
         quad = ((Y[idx] - f_mean) ** 2 + var_f) / sigma2_unsq  # (B, D)
         quad = torch.clamp(quad, max=CLIP_QUAD)
@@ -222,8 +222,10 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
                     - 0.5 * sigma2.log().unsqueeze(-1)
                     - 0.5 * quad).sum(-1)  # (B,)
         kl_x = 0.5 * ((s2 + mu ** 2) - s2.log() - 1.0).sum(-1)  # (B,)
-
-        return (log_like - kl_x).mean(), r.detach(), Q.detach()  # scalar, (B,D,M), (B,D,M,M)
+        ll_mean  = log_like.mean()       
+        klx_mean = kl_x.mean()           
+        elbo_mean = ll_mean - klx_mean
+        return elbo_mean, ll_mean, klx_mean, r.detach(), Q_mat.detach()
 
 
     # --------------------------- optimizers ------------------------------
@@ -241,7 +243,7 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
     Z_prev      = Z.detach().clone()
     alpha_prev  = log_alpha.detach().clone()
     
-    iters, elbo_hist = [], []
+    iters, full_elbo_hist, local_elbo_hist, ll_hist, klx_hist, klu_hist = [], [], [], [], [], []
     for t in trange(1, T_TOTAL + 1, ncols=100):
         Sigma_det = Sigma_u(C_u).detach()  # (D, M, M)
         idx = torch.randint(0, N, (BATCH,), device=DEV)  # (B,)
@@ -250,7 +252,7 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
         inner_iters = INNER0 if t <= 50 else INNER
         for _ in range(inner_iters):
             opt_x.zero_grad(set_to_none=True)
-            local_elbo_batch_mean_x, _, _ = local_step(idx, sample_U(m_u, C_u),
+            local_elbo_batch_mean_x, *_ = local_step(idx, sample_U(m_u, C_u),
                                                        Sigma_det, False, dbg=(t == 1))
             loss_x = -local_elbo_batch_mean_x * N
             loss_x.backward(retain_graph=True)
@@ -264,7 +266,7 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
         opt_alpha.zero_grad(set_to_none=True)
         K_MM, K_inv = update_K_and_inv()
         U_sample = sample_U(m_u, C_u)  # (D, M)
-        local_elbo_batch_mean, r_b, Q_b = local_step(idx, U_sample, Sigma_u(C_u), True)
+        local_elbo_batch_mean, ll_b, klx_b, r_b, Q_b = local_step(idx, U_sample, Sigma_u(C_u), True)
         local_elbo = local_elbo_batch_mean * N
         kl_u = compute_kl_u(m_u, C_u, K_MM, K_inv)
         full_elbo = local_elbo - kl_u
@@ -274,11 +276,12 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
         if t % 50 == 0:
             with torch.no_grad():
                 # 1) full ELBO and KL terms
-                kl_u   = compute_kl_u(m_u, C_u, K_MM, K_inv)
-                kl_x   = 0.5 * (((log_s2x.exp() + mu_x**2) - log_s2x) - 1).sum()
-                full_elbo = local_elbo - kl_u - kl_x
-                print(f"[{t:4d}] full ELBO={full_elbo:.4e} "
-                    f"(LL={local_elbo.item():.4e}, KL_U={kl_u.item():.4e}, KL_X={kl_x.item():.4e})")
+                LL_batch  = (ll_b  * N).item()
+                KLx_batch = (klx_b * N).item()
+                kl_u_val  = kl_u.item()
+                full_elbo = LL_batch - KLx_batch - kl_u_val
+                print(f"BATCH FULL ELBO @ {t:3d}: {full_elbo:.4e}  "
+                    f"LL={LL_batch:.4e}  KL_X={KLx_batch:.4e}  KL_U={kl_u_val:.4e}")
 
                 # 2) noise vs signal
                 sf2   = safe_exp(log_sf2)
@@ -342,11 +345,21 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
 
         # ----- monitoring ----------------------------------------------
         if t % 25 == 0 or t == 1:
-            local_elbo_full_n_mean, _, _ = local_step(torch.arange(N, device=DEV),
-                                                      sample_U(m_u, C_u), Sigma_u(C_u), False)
+            with torch.no_grad():
+                local_elbo_full_n_mean, ll_f, klx_f, *_ = local_step(torch.arange(N, device=DEV),
+                                                        sample_U(m_u, C_u), Sigma_u(C_u), False)
+                LL_full   = (ll_f  * N).item()
+                KLx_full  = (klx_f * N).item()
+                kl_u_full = compute_kl_u(m_u, C_u, K_MM, K_inv).item()
+                full_elbo = LL_full - KLx_full - kl_u_full
             iters.append(t)
-            elbo_hist.append(local_elbo_full_n_mean.item())
-            print(f"\nELBO @ {t:3d} : {local_elbo_full_n_mean.item():.4e}")
+            full_elbo_hist.append(full_elbo)
+            local_elbo_hist.append(local_elbo_full_n_mean.item())
+            ll_hist.append(LL_full)
+            klx_hist.append(KLx_full)
+            klu_hist.append(kl_u_full)
+            print(f"\nDATASET FULL ELBO @ {t:3d}: {full_elbo:.4e}  "
+                  f"LL={LL_full:.4e}  KL_X={KLx_full:.4e}  KL_U={kl_u_full:.4e}")
 
     results_dict = {
     "mu_x": mu_x.detach().cpu(),  # (N, Q)
@@ -358,7 +371,11 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
     "m_u": m_u.detach().cpu(),  # (D, M)
     "C_u": C_u.detach().cpu(),  # (D, M, M)
     "elbo_iters": iters,
-    "elbo_vals": elbo_hist,
+    "elbo_vals": full_elbo_hist,
+    "local_elbo_vals": local_elbo_hist,
+    "ll_vals":   ll_hist,
+    "klx_vals":  klx_hist,
+    "klu_vals":  klu_hist,
     }
     
     with torch.no_grad():
