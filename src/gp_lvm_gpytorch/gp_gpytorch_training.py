@@ -73,6 +73,7 @@ def train_bgplvm(cfg: BGPLVMConfig, Y: torch.Tensor, init_latents_and_z_dict: di
                     "elbo_vals": [-v for v in loss_list],
                     "Z": model.inducing_inputs[0].detach().cpu().clone(),
                     "m_u": q_u.variational_mean.detach().cpu().clone(),
+                    "C_u": q_u.chol_variational_covar.detach().cpu().clone(),
                     "log_sf2": model.covar_module.outputscale.log().item(),
                     "log_s2x": log_s2x,
                     "predictive_mean": dist.mean.T.detach().cpu().clone(),
@@ -92,7 +93,8 @@ def train_bgplvm(cfg: BGPLVMConfig, Y: torch.Tensor, init_latents_and_z_dict: di
     "elbo_iters": iters_list,
     "elbo_vals": [-v for v in loss_list],
     "Z": model.inducing_inputs[0].detach().cpu(),
-    "m_u": q_u.variational_mean.detach().cpu(),  
+    "m_u": q_u.variational_mean.detach().cpu(),
+    "C_u": q_u.chol_variational_covar.detach().cpu().clone(),  
     "log_sf2": model.covar_module.outputscale.log().item(),  # log(signal variance)
     "log_s2x": log_s2x,
     "predictive_mean": dist.mean.T.cpu(),      # (N, D)
