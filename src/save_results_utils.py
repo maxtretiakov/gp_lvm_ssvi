@@ -50,9 +50,13 @@ def save_final_results(results_dict, labels, fractions, metrics, config_name, sa
 
 def save_all_results(results_dict, labels, fractions, Y, metrics, config_name, base_save_dir):
     snapshots = results_dict.get("snapshots", {})
-    for iter_num, snap in snapshots.items():
-        snap_dir = base_save_dir / f"{iter_num}_iters_results"
-        save_snapshot(snap, labels, fractions, Y, snap_dir)
+
+    if snapshots:
+        for iter_num, snap in snapshots.items():
+            snap_dir = base_save_dir / f"{iter_num}_iters_results"
+            save_snapshot(snap, labels, fractions, Y, snap_dir)
+    else:
+        print("Snapshots dict is empty. Skipping snapshot saving.")
 
     final_dir = base_save_dir / "final_results"
     save_final_results(results_dict, labels, fractions, metrics, config_name, final_dir)
