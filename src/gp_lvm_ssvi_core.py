@@ -52,11 +52,15 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
     M = config.inducing.n_inducing
     Z = init_latents_z_dict["Z"].to(device=DEV, dtype=torch.float64).detach().clone().requires_grad_()        
 
-    log_sf2 = torch.tensor(math.log(Y.var().item()), device=DEV, requires_grad=True)  # ()
+    noise_ratio = 1.0
+    sf2_init = float(Y.var().item())
+    noise_var_init = noise_ratio * sf2_init
+    
+    log_sf2 = torch.tensor(math.log(sf2_init), device=DEV, requires_grad=True)
     log_alpha = (torch.full((Q,), -2.0, device=DEV)
                  + 0.1 * torch.randn(Q, device=DEV)
                  ).requires_grad_()  # (Q,)
-    log_beta_inv = torch.tensor(-3.2, device=DEV, requires_grad=True)  # ()
+    log_beta_inv = torch.tensor(math.log(noise_var_init), device=DEV, requires_grad=True)  # ()
 
 
     def k_se(x, z, log_sf2_val, log_alpha_val):
