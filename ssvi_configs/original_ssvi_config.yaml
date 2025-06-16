@@ -11,10 +11,10 @@ lr:
 # training schedule
 training:
   batch_size: 128     # B
-  total_iters: 500    # T_TOTAL
+  total_iters: 1500    # T_TOTAL
   inner_iters:
-    start:  40        # INNER0 (first   inner_switch iters)
-    after:  30        # INNER  (after   inner_switch)
+    start:  100        # INNER0 (first   inner_switch iters)
+    after:  80        # INNER  (after   inner_switch)
     switch: 50        # iteration number to switch
 
 # init mu_x, log_sigma2_x
@@ -41,5 +41,5 @@ rho:
 q_latent:   12        # Q  (= D for the oil data)
 
 # additional
-init_signal_to_noise_ratio: 1.0
-num_u_samples_per_iter: 2
+init_signal_to_noise_ratio: 5.0
+num_u_samples_per_iter: 4
