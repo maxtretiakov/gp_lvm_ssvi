@@ -5,6 +5,7 @@ from sklearn.decomposition import PCA
 import datetime
 import json
 from dataclasses import asdict
+from torch.func import vmap 
 
 torch.set_default_dtype(torch.float64)
 
@@ -23,6 +24,7 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
     CLIP_QUAD, GR_CLIP =  1e6, 20.0
     BOUNDS = {"log_sf2": (-8.0, 8.0), "log_alpha": (-20.0, 20.0),
               "log_beta": (-8.0, 5.0), "log_s2x": (-10.0, 10.0)}
+    NUM_U_SAMPLES = 2
 
     rho = lambda t, t0=config.rho.t0, k=0.6: (t0 + t) ** (-config.rho.k)  # SVI step size
     safe_exp = lambda x: torch.exp(torch.clamp(x, max=MAX_EXP))
@@ -88,10 +90,11 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
     def Sigma_u(C_u):
         return C_u @ C_u.transpose(-1, -2)  # (D, M, M)
 
-
-    def sample_U(m_u, C_u):
-        eps = torch.randn(m_u.shape[0], m_u.shape[1], device=m_u.device).unsqueeze(-1)  # (D, M, 1)
-        return m_u + (C_u @ eps).squeeze(-1)  # (D, M)
+   
+    def sample_U_batch(m_u: torch.Tensor, C_u: torch.Tensor, S: int) -> torch.Tensor:
+        eps   = torch.randn(S, *m_u.shape, device=m_u.device).unsqueeze(-1)   # (S,D,M,1)
+        C_exp = C_u.unsqueeze(0).expand(S, -1, -1, -1)                        # (S,D,M,M)
+        return m_u.unsqueeze(0) + (C_exp @ eps).squeeze(-1)                   # (S,D,M)
 
 
     def natural_from_moment(m_u, C_u):
@@ -253,8 +256,9 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
         inner_iters = INNER0 if t <= 50 else INNER
         for _ in range(inner_iters):
             opt_x.zero_grad(set_to_none=True)
-            local_elbo_batch_mean_x, *_ = local_step(idx, sample_U(m_u, C_u),
-                                                       Sigma_det, False, dbg=(t == 1))
+            U_smpls = sample_U_batch(m_u, C_u, NUM_U_SAMPLES)
+            elbo_vec = vmap(lambda u: local_step(idx, u, Sigma_det, False)[0])(U_smpls)
+            local_elbo_batch_mean_x = elbo_vec.mean()
             loss_x = -local_elbo_batch_mean_x * N
             loss_x.backward(retain_graph=True)
             torch.nn.utils.clip_grad_norm_([mu_x, log_s2x], GR_CLIP)
@@ -266,8 +270,16 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
         opt_hyp.zero_grad(set_to_none=True)
         opt_alpha.zero_grad(set_to_none=True)
         K_MM, K_inv = update_K_and_inv()
-        U_sample = sample_U(m_u, C_u)  # (D, M)
-        local_elbo_batch_mean, ll_b, klx_b, r_b, Q_b = local_step(idx, U_sample, Sigma_u(C_u), True)
+        U_smpls = sample_U_batch(m_u, C_u, NUM_U_SAMPLES)
+        elbo_vec, ll_vec, klx_vec, r_stack, Q_stack = vmap(
+            lambda u: local_step(idx, u, Sigma_u(C_u), True)
+        )(U_smpls)
+        local_elbo_batch_mean = elbo_vec.mean()
+        ll_b_mean   = ll_vec.mean()
+        klx_b_mean  = klx_vec.mean()
+        r_b_mean    = r_stack.mean(0).sum(0)
+        Q_b_mean    = Q_stack.mean(0).sum(0)
+        diff_U_avg = (U_smpls - m_u).mean(0)  
         local_elbo = local_elbo_batch_mean * N
         kl_u = compute_kl_u(m_u, C_u, K_MM, K_inv)
         full_elbo = local_elbo - kl_u
@@ -277,8 +289,8 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
         if t % 50 == 0:
             with torch.no_grad():
                 # 1) full ELBO and KL terms
-                LL_batch  = (ll_b  * N).item()
-                KLx_batch = (klx_b * N).item()
+                LL_batch  = (ll_b_mean  * N).item()
+                KLx_batch = (klx_b_mean * N).item()
                 kl_u_val  = kl_u.item()
                 full_elbo = LL_batch - KLx_batch - kl_u_val
                 print(f"\nBATCH FULL ELBO @ {t:3d}: {full_elbo:.4e}  "
@@ -333,24 +345,25 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
             Lambda_prior.copy_((-0.5 * K_inv).expand_as(Lambda_prior))  # (D, M, M)
 
             h_nat, Lambda_nat = natural_from_moment(m_u, C_u)  # (D,M), (D,M,M)
-            r_sum, Q_sum = r_b.sum(0), Q_b.sum(0)  # (D,M), (D,M,M)
-            diff_U = (U_sample - m_u).unsqueeze(-1)  # (D, M, 1)
-            r_tilde = r_sum + 2.0 * (Q_sum @ diff_U).squeeze(-1)  # (D, M)
+            r_tilde = r_b_mean + 2.0 * (Q_b_mean @ diff_U_avg.unsqueeze(-1)).squeeze(-1)
 
             lr = rho(t)
             scale = N / idx.size(0)
             h_new = (1.0 - lr) * h_nat + lr * scale * r_tilde  # (D, M)
             Lambda_new = ((1.0 - lr) * Lambda_nat
-                          + lr * (Lambda_prior + scale * Q_sum))  # (D, M, M)
+                          + lr * (Lambda_prior + scale * Q_b_mean))  # (D, M, M)
             set_from_natural(h_new, Lambda_new, m_u, C_u)
 
         # ----- monitoring ----------------------------------------------
         if t % 25 == 0 or t == 1:
             with torch.no_grad():
-                local_elbo_full_n_mean, ll_f, klx_f, *_ = local_step(torch.arange(N, device=DEV),
-                                                        sample_U(m_u, C_u), Sigma_u(C_u), False)
-                LL_full   = (ll_f  * N).item()
-                KLx_full  = (klx_f * N).item()
+                U_smpls_full = sample_U_batch(m_u, C_u, NUM_U_SAMPLES)
+                elbo_vec, ll_vec, klx_vec, *_ = vmap(
+                    lambda u: local_step(torch.arange(N, device=DEV), u, Sigma_u(C_u), False)
+                )(U_smpls_full) 
+                local_elbo_full_n_mean = elbo_vec.mean()
+                LL_full   = (ll_vec.mean()  * N).item()
+                KLx_full  = (klx_vec.mean() * N).item()
                 kl_u_full = compute_kl_u(m_u, C_u, K_MM, K_inv).item()
                 full_elbo = LL_full - KLx_full - kl_u_full
             iters.append(t)
