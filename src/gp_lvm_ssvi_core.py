@@ -24,7 +24,8 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
     CLIP_QUAD, GR_CLIP =  1e6, 20.0
     BOUNDS = {"log_sf2": (-8.0, 8.0), "log_alpha": (-20.0, 20.0),
               "log_beta": (-8.0, 5.0), "log_s2x": (-10.0, 10.0)}
-    NUM_U_SAMPLES = 2
+    NUM_U_SAMPLES = config.num_u_samples_per_iter
+    print(f"num_u_samples_per_iter: {NUM_U_SAMPLES}")
 
     rho = lambda t, t0=config.rho.t0, k=0.6: (t0 + t) ** (-config.rho.k)  # SVI step size
     safe_exp = lambda x: torch.exp(torch.clamp(x, max=MAX_EXP))

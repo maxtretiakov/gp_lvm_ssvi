@@ -54,6 +54,7 @@ class GPSSVIConfig:
     max_exp: float
     q_latent: int
     init_signal_to_noise_ratio: float
+    num_u_samples_per_iter: int
     lr: LR = field(default_factory=LR)
     rho: Rho = field(default_factory=Rho)
     training: Training = field(default_factory=Training)
