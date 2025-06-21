@@ -1,0 +1,40 @@
+gp_ssvi:
+  device: cuda
+  debug: false
+
+  lr:
+    x: 1e-3
+    hyp: 1e-3
+    alpha: 5e-3
+
+  training:
+    batch_size: 128
+    total_iters: 500
+    inner_iters:
+      start: 40
+      after: 30
+      switch: 50
+
+  init_latent_dist:
+    method: default
+    custom_path: ""
+
+  inducing:
+    n_inducing: 64
+    selection: perm
+    seed: 19
+
+  jitter: 5e-6
+  max_exp: 60.0
+
+  rho:
+    t0: 100.0
+    k: 0.6
+
+  q_latent: 12
+  init_signal_to_noise_ratio: 1.0
+  num_u_samples_per_iter: 2
+
+bo:
+  bo_steps: 10       # how many BO iterations to run
+  grid_size: 200     # how many latent candidates to evaluate at each BO step
