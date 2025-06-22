@@ -36,5 +36,10 @@ gp_ssvi:
   num_u_samples_per_iter: 2
 
 bo:
-  bo_steps: 10       # how many BO iterations to run
-  grid_size: 200     # how many latent candidates to evaluate at each BO step
+  bo_steps: 5
+
+run:
+  seed: 0
+  pct_train: 50
+  test_name: many_r
+  start_point: centre

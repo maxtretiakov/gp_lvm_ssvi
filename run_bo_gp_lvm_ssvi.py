@@ -10,17 +10,13 @@ import json
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
 
-from src.config import load_full_config
-from bo_loop import bayesian_optimization_loop
+from src.bayesian_optimization.config_helper import load_full_config
+from src.bayesian_optimization.bo_gp_lvm_ssvi import bayesian_optimization_loop
 from src.bayesian_optimization.targets_helper import prepare_targets
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=Path, required=True, help="YAML config with gp_ssvi + bo sections")
-    parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--pct_train", type=int, default=50)
-    parser.add_argument("--test_name", type=str, required=True, help="BO scenario name, e.g. 'many_r'")
-    parser.add_argument("--start_point", type=str, choices=['0_point_start', 'centre'], required=True)
     args = parser.parse_args()
 
     # Load config
@@ -33,9 +29,17 @@ if __name__ == "__main__":
     # Load full data
     data = pd.read_csv(work_dir / "data" / "data.csv", index_col=[0])
 
+    # Use seed, test_name, start_point, pct_train from config
+    seed = bo_cfg.seed
+    pct_train = bo_cfg.pct_train
+    test_name = bo_cfg.test_name
+    start_point = bo_cfg.start_point
+
+    print(f"Config: seed={seed}, test_name={test_name}, start_point={start_point}")
+
     # Load train/test split
-    train_file = work_dir / f"data/bayes_opt/seed_{args.seed}_{args.test_name}_{args.start_point}/train.txt"
-    test_file = work_dir / f"data/bayes_opt/seed_{args.seed}_{args.test_name}_{args.start_point}/test.txt"
+    train_file = work_dir / f"data/bayes_opt/seed_{seed}_{test_name}_{start_point}/train.txt"
+    test_file = work_dir / f"data/bayes_opt/seed_{seed}_{test_name}_{start_point}/test.txt"
 
     with train_file.open() as f:
         train_locs = [line.strip() for line in f]
@@ -50,7 +54,7 @@ if __name__ == "__main__":
     # Load targets
     targets = prepare_targets(work_dir)
 
-    # Train target
+    # Target for training
     Y = torch.tensor(train_df['Value'].values, dtype=torch.float64, device=gp_cfg.device).unsqueeze(-1)
 
     # PCA for latent space
@@ -77,7 +81,7 @@ if __name__ == "__main__":
         "Z": Z
     }
 
-    # Acquisition grid is test latents
+    # Acquisition grid ===
     acquisition_grid = test_latents
 
     # Use only the first surface for demonstration

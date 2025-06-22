@@ -6,9 +6,17 @@ from typing import Any, get_type_hints
 from src.gp_dataclasses import GPSSVIConfig, BOConfig
 
 @dataclasses.dataclass
+class RunConfig:
+    seed: int
+    pct_train: int
+    test_name: str
+    start_point: str  # only '0_point_start' or 'centre'
+
+@dataclasses.dataclass
 class FullConfig:
     gp_ssvi: GPSSVIConfig
     bo: BOConfig
+    run: RunConfig  
 
 def _to_dataclass(cls, src: Any):
     if not dataclasses.is_dataclass(cls):
