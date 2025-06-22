@@ -103,7 +103,7 @@ if __name__ == "__main__":
         config=gp_cfg,
         K_steps=bo_cfg.bo_steps,
         acquisition_grid=acquisition_grid,
-        reinit_Z=False,
+        reinit_Z=True,
         oracle_fn=oracle_fn,
         test_df=test_df,
         targets=targets,
