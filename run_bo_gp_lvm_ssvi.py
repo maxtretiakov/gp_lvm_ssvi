@@ -85,6 +85,7 @@ if __name__ == "__main__":
     acquisition_grid = test_latents
 
     # Use only the first surface for demonstration
+    # Here we choose one surface for which we perform BO
     ppr = targets['PrimerPairReporter'].iloc[0]
     print(f"Optimizing surface: {ppr}")
 
