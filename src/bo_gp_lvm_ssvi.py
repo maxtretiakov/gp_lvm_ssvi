@@ -1,8 +1,9 @@
 import torch
 import numpy as np
-from scipy.stats import norm
 from sklearn.cluster import KMeans
 from src.ssvigplvm import train_gp_lvm_ssvi
+from src.bayesian_optimization.expected_improvement import ExpectedImprovement
+from src.bayesian_optimization.metrics_helper import get_nlpd, get_squared_error, get_regret
 
 
 def k_se(x, z, log_sf2, log_alpha):
@@ -10,16 +11,6 @@ def k_se(x, z, log_sf2, log_alpha):
     alpha = torch.exp(log_alpha)
     diff = x.unsqueeze(-2) - z
     return sf2 * torch.exp(-0.5 * (diff ** 2 * alpha).sum(-1))
-
-
-def expected_improvement(mean, var, y_best):
-    std = np.sqrt(np.maximum(var.cpu().numpy(), 1e-9))
-    mean_np = mean.cpu().numpy()
-    y_best_np = y_best.cpu().numpy()
-    Z = (mean_np - y_best_np) / std
-    ei_np = (mean_np - y_best_np) * norm.cdf(Z) + std * norm.pdf(Z)
-    ei = torch.from_numpy(ei_np).to(mean.device)
-    return ei
 
 
 def add_new_data_point(Y, y_new, mu_x, log_s2x, init_method="prior"):
@@ -42,7 +33,7 @@ def add_new_data_point(Y, y_new, mu_x, log_s2x, init_method="prior"):
 
 def reinitialize_Z(mu_x, config):
     n_inducing = config.inducing.n_inducing
-    Z_np = KMeans(n_clusters=n_inducing, random_state=config.inducing.seed)\
+    Z_np = KMeans(n_clusters=n_inducing, random_state=config.inducing.seed) \
         .fit(mu_x.detach().cpu().numpy()).cluster_centers_
     Z = torch.tensor(Z_np, device=mu_x.device, dtype=torch.float64)
     return Z
@@ -50,17 +41,23 @@ def reinitialize_Z(mu_x, config):
 
 def bayesian_optimization_loop(Y, init_latents_z_dict, config,
                                K_steps=5, acquisition_grid=None,
-                               reinit_Z=False, oracle_fn=None):
+                               reinit_Z=False, oracle_fn=None,
+                               test_df=None, targets=None, ppr=None):
+
     mu_x = init_latents_z_dict["mu_x"]
     log_s2x = init_latents_z_dict["log_s2x"]
     Z = init_latents_z_dict["Z"]
     DEV = config.device_resolved()
 
+    ei_calculator = ExpectedImprovement()
     chosen_indices = []
     ei_values = []
+    nlpd_values = []
+    rmse_values = []
+    regret_values = []
 
     for k in range(K_steps):
-        print(f"\nBO step {k+1}/{K_steps}")
+        print(f"\nBO step {k + 1}/{K_steps}")
 
         init_dict = {"mu_x": mu_x, "log_s2x": log_s2x, "Z": Z}
         results = train_gp_lvm_ssvi(config, Y, init_dict)
@@ -83,23 +80,28 @@ def bayesian_optimization_loop(Y, init_latents_z_dict, config,
             for d in range(m_u.shape[0])
         ], dim=1)
 
-        pred_mean_scalar = pred_mean.mean(dim=1)
-        pred_var_scalar = pred_var.mean(dim=1)
+        pred_mean_scalar = pred_mean.mean(dim=1).cpu().numpy()
+        pred_var_scalar = pred_var.mean(dim=1).cpu().numpy()
 
-        y_best = Y.max()
-        ei = expected_improvement(pred_mean_scalar, pred_var_scalar, y_best)
+        # === EI ===
+        pred_df = {
+            'mu': pred_mean_scalar,
+            'sig2': pred_var_scalar
+        }
+        y_best = ei_calculator.BestYet(Y.cpu().numpy(), {'Target Rate': 0})
+        ei_np = ei_calculator.EI(pred_df, {'Target Rate': 0}, y_best, ['r'])
+        ei_torch = torch.from_numpy(ei_np).to(DEV)
 
-        # Mask already chosen
         if chosen_indices:
-            mask = torch.zeros_like(ei)
+            mask = torch.zeros_like(ei_torch)
             mask[chosen_indices] = 1
-            ei = ei.masked_fill(mask.bool(), float("-inf"))
+            ei_torch = ei_torch.masked_fill(mask.bool(), float("-inf"))
 
-        idx_best = torch.argmax(ei)
+        idx_best = torch.argmax(ei_torch)
         x_next_latent = acquisition_grid[idx_best]
 
         print(f"Next latent idx: {idx_best}  value: {x_next_latent}")
-        print(f"Max EI: {ei[idx_best].item():.4f}")
+        print(f"Max EI: {ei_torch[idx_best].item():.4f}")
 
         if oracle_fn is None:
             raise ValueError("You must pass oracle_fn for real data BO loop.")
@@ -116,12 +118,27 @@ def bayesian_optimization_loop(Y, init_latents_z_dict, config,
         print(f"Updated dataset size: N = {Y.size(0)}")
 
         chosen_indices.append(idx_best.item())
-        ei_values.append(ei.detach().cpu())
+        ei_values.append(ei_torch.detach().cpu())
+
+        # === Metrics ===
+        if test_df is not None and targets is not None and ppr is not None:
+            ys_true = test_df[test_df['PrimerPairReporter'] == ppr]['Value'].to_numpy()
+            nlpd = get_nlpd(pred_mean_scalar, pred_var_scalar, ys_true)
+            squared_error = get_squared_error(pred_mean_scalar, ys_true)
+            target = targets[targets['PrimerPairReporter'] == ppr]['Target Rate'].to_numpy()
+            regret = get_regret(y=ys_true, y_best_dist=y_best, target=target)
+
+            nlpd_values.append(float(np.mean(nlpd)))
+            rmse_values.append(float(np.sqrt(np.mean(squared_error))))
+            regret_values.append(float(np.min(regret)))
 
     return {
         "Y_final": Y,
         "mu_x_final": mu_x,
         "log_s2x_final": log_s2x,
         "chosen_indices": chosen_indices,
-        "ei_values": ei_values
+        "ei_values": ei_values,
+        "nlpd_values": nlpd_values,
+        "rmse_values": rmse_values,
+        "regret_values": regret_values
     }
