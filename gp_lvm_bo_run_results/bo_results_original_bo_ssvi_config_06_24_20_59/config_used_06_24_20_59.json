@@ -36,7 +36,7 @@
     }
   },
   "bo": {
-    "bo_steps": 5,
+    "bo_steps": 3,
     "seed": 0,
     "pct_train": 50,
     "test_name": "many_r",
