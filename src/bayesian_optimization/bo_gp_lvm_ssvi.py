@@ -13,7 +13,7 @@ def k_se(x, z, log_sf2, log_alpha):
     return sf2 * torch.exp(-0.5 * (diff ** 2 * alpha).sum(-1))
 
 
-def add_new_data_point(Y, y_new, mu_x, log_s2x, init_method="prior"):
+def add_new_data_point(Y, y_new, mu_x, log_s2x, init_method="random"):
     Q = mu_x.shape[1]
     if init_method == "prior":
         mu_new = torch.zeros(Q, device=Y.device)
