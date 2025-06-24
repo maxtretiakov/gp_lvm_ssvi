@@ -62,13 +62,12 @@ if __name__ == "__main__":
 
     # PCA for latent space
     Q = gp_cfg.q_latent
-    all_values = pd.concat([train_df, test_df])['Value'].values.reshape(-1, 1)
-    pca = PCA(n_components=Q)
-    all_latents_np = pca.fit_transform(all_values)
+    N_train = len(train_df)
+    N_test = len(test_df)
 
-    train_latents = torch.tensor(all_latents_np[:len(train_df)], dtype=torch.float64, device=gp_cfg.device)
-    test_latents = torch.tensor(all_latents_np[len(train_df):], dtype=torch.float64, device=gp_cfg.device)
-
+    train_latents = torch.randn(N_train, Q, dtype=torch.float64, device=gp_cfg.device) * 0.1
+    test_latents  = torch.randn(N_test,  Q, dtype=torch.float64, device=gp_cfg.device)
+    
     # Init Z using KMeans
     kmeans = KMeans(n_clusters=gp_cfg.inducing.n_inducing, random_state=gp_cfg.inducing.seed)
     Z = torch.tensor(

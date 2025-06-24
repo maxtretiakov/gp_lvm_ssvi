@@ -9,7 +9,7 @@ gp_ssvi:
 
   training:
     batch_size: 128
-    total_iters: 500
+    total_iters: 5
     inner_iters:
       start: 40
       after: 30

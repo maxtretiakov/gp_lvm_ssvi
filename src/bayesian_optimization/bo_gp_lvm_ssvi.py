@@ -83,7 +83,7 @@ def bayesian_optimization_loop(Y, init_latents_z_dict, config,
         pred_mean_scalar = pred_mean.mean(dim=1).cpu().numpy()
         pred_var_scalar = pred_var.mean(dim=1).cpu().numpy()
 
-        # === EI ===
+        # EI
         pred_df = {
             'mu': pred_mean_scalar,
             'sig2': pred_var_scalar
@@ -120,7 +120,7 @@ def bayesian_optimization_loop(Y, init_latents_z_dict, config,
         chosen_indices.append(idx_best.item())
         ei_values.append(ei_torch.detach().cpu())
 
-        # === Metrics ===
+        # Metrics
         if test_df is not None and targets is not None and ppr is not None:
             ys_true = test_df[test_df['PrimerPairReporter'] == ppr]['Value'].to_numpy()
             nlpd = get_nlpd(pred_mean_scalar, pred_var_scalar, ys_true)
