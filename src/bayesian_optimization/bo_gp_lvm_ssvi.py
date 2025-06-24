@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 from sklearn.cluster import KMeans
-from src.ssvigplvm import train_gp_lvm_ssvi
+from src.gp_lvm_ssvi_core import train_gp_lvm_ssvi
 from src.bayesian_optimization.expected_improvement import ExpectedImprovement
 from src.bayesian_optimization.metrics_helper import get_nlpd, get_squared_error, get_regret
 
