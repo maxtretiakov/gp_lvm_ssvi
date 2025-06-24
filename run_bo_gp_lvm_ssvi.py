@@ -124,14 +124,20 @@ if __name__ == "__main__":
         json.dump(dataclasses.asdict(cfg), f, indent=2)
 
     torch.save({
-        "Y_final": results["Y_final"].cpu(),
-        "mu_x_final": results["mu_x_final"].cpu(),
-        "log_s2x_final": results["log_s2x_final"].cpu(),
-        "chosen_indices": results["chosen_indices"],
-        "ei_values": [ei.numpy().tolist() for ei in results["ei_values"]],
-        "nlpd_values": results["nlpd_values"],
-        "rmse_values": results["rmse_values"],
-        "regret_values": results["regret_values"]
-    }, save_results_path / f"bo_loop_output_{timestamp}.pt")
+    "mu_x_final": results["mu_x_final"].cpu(),
+    "log_s2x_final": results["log_s2x_final"].cpu()
+    }, save_results_path / f"latent_variables_{timestamp}.pt")
+    
+    bo_metrics = {
+    "Y_final_len": results["Y_final"].shape[0],
+    "chosen_indices": results["chosen_indices"],
+    "ei_values": [ei.numpy().tolist() for ei in results["ei_values"]],
+    "nlpd_values": results["nlpd_values"],
+    "rmse_values": results["rmse_values"],
+    "regret_values": results["regret_values"]
+    }
+    
+    with open(save_results_path / f"bo_metrics_{timestamp}.json", "w") as f:
+        json.dump(bo_metrics, f, indent=2)
 
     print(f"BO loop finished. Results saved to {save_results_path}")

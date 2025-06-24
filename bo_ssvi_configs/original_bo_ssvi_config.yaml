@@ -36,7 +36,7 @@ gp_ssvi:
   num_u_samples_per_iter: 2
 
 bo:
-  bo_steps: 5
+  bo_steps: 3
   seed: 0
   pct_train: 50
   test_name: many_r
