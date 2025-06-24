@@ -96,7 +96,8 @@ if __name__ == "__main__":
         diffs = acquisition_grid - x_latent
         dists = torch.norm(diffs, dim=1)
         idx = torch.argmin(dists)
-        return test_df['Value'].iloc[idx.item()]
+        y_val = test_df['Value'].iloc[idx.item()]
+        return torch.tensor([y_val], device=gp_cfg.device, dtype=torch.float64)
 
     # Run BO loop
     results = bayesian_optimization_loop(
