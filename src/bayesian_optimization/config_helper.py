@@ -3,10 +3,11 @@ import dataclasses
 from pathlib import Path
 from typing import Any, get_type_hints
 
-from src.gp_dataclasses import GPSSVIConfig, BOConfig
+from src.gp_dataclasses import GPSSVIConfig
 
 @dataclasses.dataclass
-class RunConfig:
+class BOConfig:
+    bo_steps: int
     seed: int
     pct_train: int
     test_name: str
@@ -16,7 +17,6 @@ class RunConfig:
 class FullConfig:
     gp_ssvi: GPSSVIConfig
     bo: BOConfig
-    run: RunConfig  
 
 def _to_dataclass(cls, src: Any):
     if not dataclasses.is_dataclass(cls):

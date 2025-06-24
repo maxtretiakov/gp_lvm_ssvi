@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 from sklearn.cluster import KMeans
-from src.ssvigplvm import train_gp_lvm_ssvi
+from src.gp_lvm_ssvi_core import train_gp_lvm_ssvi
 from src.bayesian_optimization.expected_improvement import ExpectedImprovement
 from src.bayesian_optimization.metrics_helper import get_nlpd, get_squared_error, get_regret
 
@@ -13,7 +13,7 @@ def k_se(x, z, log_sf2, log_alpha):
     return sf2 * torch.exp(-0.5 * (diff ** 2 * alpha).sum(-1))
 
 
-def add_new_data_point(Y, y_new, mu_x, log_s2x, init_method="prior"):
+def add_new_data_point(Y, y_new, mu_x, log_s2x, init_method="random"):
     Q = mu_x.shape[1]
     if init_method == "prior":
         mu_new = torch.zeros(Q, device=Y.device)
@@ -83,7 +83,7 @@ def bayesian_optimization_loop(Y, init_latents_z_dict, config,
         pred_mean_scalar = pred_mean.mean(dim=1).cpu().numpy()
         pred_var_scalar = pred_var.mean(dim=1).cpu().numpy()
 
-        # === EI ===
+        # EI
         pred_df = {
             'mu': pred_mean_scalar,
             'sig2': pred_var_scalar
@@ -120,12 +120,15 @@ def bayesian_optimization_loop(Y, init_latents_z_dict, config,
         chosen_indices.append(idx_best.item())
         ei_values.append(ei_torch.detach().cpu())
 
-        # === Metrics ===
+        # Metrics: filter by ppr 
         if test_df is not None and targets is not None and ppr is not None:
-            ys_true = test_df[test_df['PrimerPairReporter'] == ppr]['Value'].to_numpy()
-            nlpd = get_nlpd(pred_mean_scalar, pred_var_scalar, ys_true)
-            squared_error = get_squared_error(pred_mean_scalar, ys_true)
-            target = targets[targets['PrimerPairReporter'] == ppr]['Target Rate'].to_numpy()
+            ppr_mask = (test_df['PrimerPairReporter'] == ppr).values
+            ys_true = test_df.loc[ppr_mask, 'Value'].to_numpy()
+            pred_mean_ppr = pred_mean_scalar[ppr_mask]
+            pred_var_ppr = pred_var_scalar[ppr_mask]
+            target = targets.loc[targets['PrimerPairReporter'] == ppr, 'Target Rate'].to_numpy()
+            nlpd = get_nlpd(pred_mean_ppr, pred_var_ppr, ys_true)
+            squared_error = get_squared_error(pred_mean_ppr, ys_true)
             regret = get_regret(y=ys_true, y_best_dist=y_best, target=target)
 
             nlpd_values.append(float(np.mean(nlpd)))

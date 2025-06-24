@@ -1,5 +1,8 @@
 #!/usr/bin/env python
-
+"""
+Example:
+  $ python run_bo_gp_lvm_ssvi.py --config bo_ssvi_configs/original_bo_ssvi_config.yaml
+"""
 import argparse
 from pathlib import Path
 import torch
@@ -12,7 +15,7 @@ from sklearn.cluster import KMeans
 
 from src.bayesian_optimization.config_helper import load_full_config
 from src.bayesian_optimization.bo_gp_lvm_ssvi import bayesian_optimization_loop
-from src.bayesian_optimization.targets_helper import prepare_targets
+from src.bayesian_optimization.targets_helper import load_targets
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -52,20 +55,19 @@ if __name__ == "__main__":
     print(f"Train rows: {len(train_df)}, Test rows: {len(test_df)}")
 
     # Load targets
-    targets = prepare_targets(work_dir)
+    targets = load_targets(work_dir)
 
     # Target for training
     Y = torch.tensor(train_df['Value'].values, dtype=torch.float64, device=gp_cfg.device).unsqueeze(-1)
 
     # PCA for latent space
     Q = gp_cfg.q_latent
-    all_values = pd.concat([train_df, test_df])['Value'].values.reshape(-1, 1)
-    pca = PCA(n_components=Q)
-    all_latents_np = pca.fit_transform(all_values)
+    N_train = len(train_df)
+    N_test = len(test_df)
 
-    train_latents = torch.tensor(all_latents_np[:len(train_df)], dtype=torch.float64, device=gp_cfg.device)
-    test_latents = torch.tensor(all_latents_np[len(train_df):], dtype=torch.float64, device=gp_cfg.device)
-
+    train_latents = torch.randn(N_train, Q, dtype=torch.float64, device=gp_cfg.device) * 0.1
+    test_latents  = torch.randn(N_test,  Q, dtype=torch.float64, device=gp_cfg.device)
+    
     # Init Z using KMeans
     kmeans = KMeans(n_clusters=gp_cfg.inducing.n_inducing, random_state=gp_cfg.inducing.seed)
     Z = torch.tensor(
@@ -94,7 +96,8 @@ if __name__ == "__main__":
         diffs = acquisition_grid - x_latent
         dists = torch.norm(diffs, dim=1)
         idx = torch.argmin(dists)
-        return test_df['Value'].iloc[idx.item()]
+        y_val = test_df['Value'].iloc[idx.item()]
+        return torch.tensor([y_val], device=gp_cfg.device, dtype=torch.float64)
 
     # Run BO loop
     results = bayesian_optimization_loop(
@@ -121,14 +124,23 @@ if __name__ == "__main__":
         json.dump(dataclasses.asdict(cfg), f, indent=2)
 
     torch.save({
-        "Y_final": results["Y_final"].cpu(),
-        "mu_x_final": results["mu_x_final"].cpu(),
-        "log_s2x_final": results["log_s2x_final"].cpu(),
+    "mu_x_final": results["mu_x_final"].cpu(),
+    "log_s2x_final": results["log_s2x_final"].cpu()
+    }, save_results_path / f"latent_variables_{timestamp}.pt")
+    
+    bo_metrics = {
+        "Y_final_len": results["Y_final"].shape[0],
         "chosen_indices": results["chosen_indices"],
-        "ei_values": [ei.numpy().tolist() for ei in results["ei_values"]],
         "nlpd_values": results["nlpd_values"],
         "rmse_values": results["rmse_values"],
         "regret_values": results["regret_values"]
-    }, save_results_path / f"bo_loop_output_{timestamp}.pt")
+    }
+
+    with open(save_results_path / f"bo_metrics_{timestamp}.json", "w") as f:
+        json.dump(bo_metrics, f, indent=2)
+
+    ei_values_list = [ei.numpy().tolist() for ei in results["ei_values"]]
+    with open(save_results_path / f"ei_values_{timestamp}.json", "w") as f:
+        json.dump(ei_values_list, f, indent=2)
 
     print(f"BO loop finished. Results saved to {save_results_path}")
