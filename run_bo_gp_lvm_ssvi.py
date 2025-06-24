@@ -15,7 +15,7 @@ from sklearn.cluster import KMeans
 
 from src.bayesian_optimization.config_helper import load_full_config
 from src.bayesian_optimization.bo_gp_lvm_ssvi import bayesian_optimization_loop
-from src.bayesian_optimization.targets_helper import prepare_targets
+from src.bayesian_optimization.targets_helper import load_targets
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -55,7 +55,7 @@ if __name__ == "__main__":
     print(f"Train rows: {len(train_df)}, Test rows: {len(test_df)}")
 
     # Load targets
-    targets = prepare_targets(work_dir)
+    targets = load_targets(work_dir)
 
     # Target for training
     Y = torch.tensor(train_df['Value'].values, dtype=torch.float64, device=gp_cfg.device).unsqueeze(-1)
