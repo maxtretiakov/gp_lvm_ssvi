@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 Example:
-  $ python run_gp_lvm_bo_ssvi.py --config configs/your_config.yaml
+  $ python run_bo_gp_lvm_ssvi.py --config bo_ssvi_configs/original_bo_ssvi_config.yaml
 """
 import argparse
 from pathlib import Path
