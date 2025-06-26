@@ -49,7 +49,9 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
     # ----------------------- latent variables ---------------------------
     mu_x = init_latents_z_dict["mu_x"].to(device=DEV, dtype=torch.float64).detach().clone().requires_grad_()
     log_s2x = init_latents_z_dict["log_s2x"].to(device=DEV, dtype=torch.float64).detach().clone().requires_grad_()
-
+    
+    # update for lvmogp  
+    D_x = mu_x.shape[1] - Q 
 
     # ------------------- kernel & inducing inputs -----------------------
     M = config.inducing.n_inducing
@@ -196,8 +198,14 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
         update_beta : bool        whether noise is trainable here
         Returns     : scalar ELBO , r (B,D,M) , Q (B,D,M,M)
         """
-        mu = mu_x[idx]  # (B, Q)
-        s2 = log_s2x[idx].exp()  # (B, Q)
+        
+        # update for lvmogp
+        
+        mu_full = mu_x[idx]          # (B, D_x+Q)
+        s2_full = log_s2x[idx].exp() # (B, D_x+Q)  
+        
+        mu = mu_full[:, D_x:]        # (B, Q)
+        s2 = s2_full[:, D_x:]        # (B, Q)
         B = mu.size(0)
 
         psi0, psi1, psi2 = compute_psi(mu, s2)  # (B,), (B,M), (B,M,M)
