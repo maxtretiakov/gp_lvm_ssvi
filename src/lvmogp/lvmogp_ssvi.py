@@ -132,9 +132,9 @@ class LVMOGP_SSVI_Torch:
             H_mu,                                         # posterior mean of H
             r["log_s2x"].to(self.DEV)[:, self.D_x:],      # log-var of   H
             r["Z"].to(self.DEV),                          # inducing Z
-            r["log_sf2"],
+            torch.tensor(r["log_sf2"], device=self.DEV),
             r["log_alpha"].to(self.DEV),
-            r["log_beta_inv"],
+            torch.tensor(r["log_beta_inv"], device=self.DEV),
             r["m_u"].to(self.DEV),
             r["C_u"].to(self.DEV),
         )
@@ -170,49 +170,54 @@ class LVMOGP_SSVI_Torch:
         psi2  = sf2**2 * c2.unsqueeze(-1) * _safe_exp(expo)
         return psi0, psi1, psi2                              # (B,) (B,M) (B,M,M)
 
-    # predict
+
     @torch.no_grad()
     def predict_f(
         self,
-        Xnew: Tuple[torch.Tensor, torch.Tensor],             # (mu_full , var_full)
-        *,
+        Xnew: Tuple[torch.Tensor, torch.Tensor],       # (mu_full , var_full)
+        *,                                             # keyword-only flags
         full_cov: bool = False,
         full_output_cov: bool = False,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
-        GPflow-style predictive mean & variance for latent function `f`.
-        `Xnew` is the tuple (mean , var) of the **concatenated**
-        observed+latent coordinates, exactly as in the original model.
+        Return GPflow-style predictive mean and *diagonal* variance.
+
+        Xnew  = (X_mean_full , X_var_full) where each tensor has shape
+                (N*, D_x + Q).  Only the diagonal predictive covariance
+                is implemented – exactly like `gpflow.models.GPR.predict_f()`.
         """
+        # CAN BE FIXED IF NEEDED
         if full_cov or full_output_cov:
             raise NotImplementedError("Only diagonal predictive cov is implemented.")
 
-        #  trained posterior pieces
-        H_mu_tr, H_log_s2_tr, Z, log_sf2, log_alpha, \
-        log_beta_inv, m_u, C_u = self._unpack()
+        # 2. Unpack trained parameters
+        (H_mu_tr, H_log_s2_tr,        # not used here, but returned for completeness
+        Z, log_sf2, log_alpha,
+        log_beta_inv, m_u, C_u) = self._unpack()
 
-        # split the user-supplied input tuple
-        Xnew_mean_full, Xnew_var_full = Xnew                 # (N*, D_x+Q)
-        mu_H = Xnew_mean_full[:, self.D_x:]                  # (N*,Q)
-        s2_H = Xnew_var_full[:,  self.D_x:]                  # (N*,Q)
+        # 3. Split observed & latent parts of Xnew
+        Xnew_mean_full, Xnew_var_full = Xnew                    # (N*, D_x+Q)
+        mu_H = Xnew_mean_full[:, self.D_x:]                    # (N*, Q)
+        s2_H = Xnew_var_full[:,  self.D_x:]                    # (N*, Q)
 
-        # psi-statistics for the new points
+        # 4. Psi-statistics for the new points
         psi0, psi1, psi2 = self._psi(mu_H, s2_H, Z, log_sf2, log_alpha)
 
-        # compute posterior predictive moments
-        Kinv = torch.cholesky_inverse(
-            _chol_safe(self._kernel(Z, Z, log_sf2, log_alpha) +
-                        JITTER * torch.eye(self.M, device=self.DEV))
-        )                                                 # (M,M)
-        A     = psi1 @ Kinv                               # (N*,M)
-        mean  = A @ m_u.T                                 # (N*,D)
+        # 5. Posterior predictive moments
+        Kuu      = self._kernel(Z, Z, log_sf2, log_alpha)
+        Kinv     = torch.cholesky_inverse(_chol_safe(Kuu + JITTER *
+                                                    torch.eye(self.M, device=self.DEV)))
+        A        = psi1 @ Kinv                                  # (N*, M)
+        mean_f   = A @ m_u.T                                    # (N*, D)
 
-        Sigma_u = C_u @ C_u.transpose(-1, -2)             # (D,M,M)
-        var = torch.stack(
-            [(A @ Sigma_u[d] * A).sum(-1) for d in range(self.D)], 1
-        ) + psi0.unsqueeze(1) - (psi2 * Kinv).sum((-2, -1))
+        # ---- diagonal predictive variance --------------------------------
+        Sigma_u  = C_u @ C_u.transpose(-1, -2)                  # (D, M, M)
+        var_f    = torch.stack(
+                    [(A @ Sigma_u[d] * A).sum(-1) for d in range(self.D)], 1
+                )                                            # (N*, D)
+        var_f    = var_f + psi0.unsqueeze(1) - (psi2 * Kinv).sum((-2, -1)).unsqueeze(1)
 
-        return mean, var
+        return mean_f, var_f
 
     def predict_y(
         self,
@@ -223,7 +228,7 @@ class LVMOGP_SSVI_Torch:
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Add learned homoscedastic Gaussian noise to `predict_f`."""
         mu_f, var_f = self.predict_f(Xnew, full_cov=full_cov, full_output_cov=full_output_cov)
-        noise       = _safe_exp(self.results["log_beta_inv"])
+        noise = _safe_exp(torch.tensor(self.results["log_beta_inv"], device=self.DEV))
         return mu_f, var_f + noise
 
     # optional – not implemented

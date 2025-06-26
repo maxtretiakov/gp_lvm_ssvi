@@ -377,7 +377,8 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
             set_from_natural(h_new, Lambda_new, m_u, C_u)
 
         # ----- monitoring ----------------------------------------------
-        if t % 25 == 0 or t == 1:
+        # update for lvmogp 
+        if t % 2 == 0 or t == 1:
             with torch.no_grad():
                 U_smpls_full = sample_U_batch(m_u, C_u, NUM_U_SAMPLES)
                 elbo_vec, ll_vec, klx_vec, *_ = vmap(
