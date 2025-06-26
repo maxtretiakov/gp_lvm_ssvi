@@ -1,7 +1,6 @@
 tensorflow>=2.15,<2.20
 gpflow>=2.9,<2.11
 tensorflow-probability>=0.23
-gumbi
 torch>=2.2.0
 gpytorch>=1.11
 matplotlib>=3.5
