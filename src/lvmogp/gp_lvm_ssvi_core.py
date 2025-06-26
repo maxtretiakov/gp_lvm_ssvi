@@ -51,7 +51,8 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
     log_s2x = init_latents_z_dict["log_s2x"].to(device=DEV, dtype=torch.float64).detach().clone().requires_grad_()
     
     # update for lvmogp  
-    D_x = mu_x.shape[1] - Q 
+    D_x = mu_x.shape[1] - Q
+    lat = slice(D_x, None) 
 
     # ------------------- kernel & inducing inputs -----------------------
     M = config.inducing.n_inducing
@@ -275,6 +276,13 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
             local_elbo_batch_mean_x = elbo_vec.mean()
             loss_x = -local_elbo_batch_mean_x * N
             loss_x.backward(retain_graph=True)
+            # update for lvmogp 
+            if hasattr(config, "static_mask"):
+                with torch.no_grad():
+                    if mu_x.grad is not None:       
+                        mu_x.grad    *= config.static_mask   
+                    if log_s2x.grad is not None: 
+                        log_s2x.grad *= config.static_mask
             torch.nn.utils.clip_grad_norm_([mu_x, log_s2x], GR_CLIP)
             opt_x.step()
             with torch.no_grad():
@@ -391,7 +399,8 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
             
         if t % 250 == 0:
             with torch.no_grad():
-                A = k_se(mu_x, Z, log_sf2, log_alpha) @ K_inv  # (N, M)
+                # update for lvmogp 
+                A = k_se(mu_x[:, lat], Z, log_sf2, log_alpha) @ K_inv  # (N, M)
                 predictive_mean_snap = A @ m_u.T  # (N, D)
                 predictive_variance_snap = torch.stack([(A @ Sigma_u(C_u)[d] * A).sum(-1) for d in range(D)], dim=1)  # (N, D)
                 iters_snapshot = iters.copy()
@@ -434,7 +443,8 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
     }
     
     with torch.no_grad():
-        A = k_se(mu_x, Z, log_sf2, log_alpha) @ K_inv  # (N, M)
+        # update for lvmogp 
+        A = k_se(mu_x[:, lat], Z, log_sf2, log_alpha) @ K_inv  # (N, M)
         predictive_mean = A @ m_u.T  # (N, D)
         predictive_variance = torch.stack([(A @ Sigma_u(C_u)[d] * A).sum(-1) for d in range(D)], dim=1)  # (N, D)
 
