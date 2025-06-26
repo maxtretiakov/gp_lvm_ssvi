@@ -1,10 +1,15 @@
+tensorflow>=2.15,<2.20
+gpflow>=2.9,<2.11
+tensorflow-probability>=0.23
+gumbi
 torch>=2.2.0
 gpytorch>=1.11
 matplotlib>=3.5
 scikit-learn>=1.3
-numpy>=1.24
+numpy<2
 pandas>=2.0
 tqdm>=4.64
 umap-learn>=0.5.5
 notebook
 ipython
+pybind11>=2.12
