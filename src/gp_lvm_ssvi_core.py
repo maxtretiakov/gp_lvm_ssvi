@@ -28,7 +28,7 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
     print(f"num_u_samples_per_iter: {NUM_U_SAMPLES}")
 
     rho = lambda t, t0=config.rho.t0, k=0.6: (t0 + t) ** (-config.rho.k)  # SVI step size
-    safe_exp = lambda x: torch.exp(torch.clamp(x, max=MAX_EXP))
+    safe_exp = lambda x: torch.exp(torch.clamp(x, min=-MAX_EXP, max=MAX_EXP))
 
 
     def cholesky_safe(mat, eps=1e-6):  # mat (., M, M)
@@ -138,12 +138,15 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
         psi0 = torch.full((mu.size(0),), sf2.item(), device=DEV)  # (B,)
 
         d1 = alpha * s2 + 1.0  # (B, Q)
-        c1 = d1.rsqrt().prod(-1, keepdim=True)  # (B, 1)
+        # numerically-stable: log-prod to exp(sum log)
+        log_c1 = -0.5 * torch.log(d1).sum(-1, keepdim=True)
+        c1 = torch.exp(log_c1)                                   # (B,1)
         diff = mu.unsqueeze(1) - Z  # (B, M, Q)
         psi1 = sf2 * c1 * safe_exp(-0.5 * ((alpha * diff ** 2) / d1.unsqueeze(1)).sum(-1))  # (B, M)
 
         d2 = 1.0 + 2.0 * alpha * s2  # (B, Q)
-        c2 = d2.rsqrt().prod(-1, keepdim=True)  # (B, 1)
+        log_c2 = -0.5 * torch.log(d2).sum(-1, keepdim=True)
+        c2 = torch.exp(log_c2)                                   # (B,1)
         ZZ = Z.unsqueeze(1) - Z.unsqueeze(0)  # (M, M, Q)
         dist = (alpha * ZZ ** 2).sum(-1)  # (M, M)
         mid = 0.5 * (Z.unsqueeze(1) + Z.unsqueeze(0))  # (M, M, Q)
