@@ -34,12 +34,12 @@ def train_lvmogp_ssvi(config: GPSSVIConfig, Y: torch.Tensor, X_data: torch.Tenso
     JITTER, MAX_EXP = 5e-6, 60.0,
     CLIP_QUAD, GR_CLIP =  1e6, 20.0
     BOUNDS = {"log_sf2": (-8.0, 8.0), "log_alpha": (-20.0, 20.0),
-              "log_beta": (-8.0, 5.0), "log_s2H": (-10.0, 10.0)}
+              "log_beta_inv": (-8.0, 5.0), "log_s2H": (-10.0, 10.0)}
     NUM_U_SAMPLES = config.num_u_samples_per_iter
     print(f"num_u_samples_per_iter: {NUM_U_SAMPLES}")
 
     rho = lambda t, t0=config.rho.t0, k=0.6: (t0 + t) ** (-config.rho.k)  # SVI step size
-    safe_exp = lambda x: torch.exp(torch.clamp(x, max=MAX_EXP))
+    safe_exp = lambda x: torch.exp(torch.clamp(x, min=-MAX_EXP, max=MAX_EXP))
 
     def cholesky_safe(mat, eps=1e-6):  # mat (., M, M)
         eye = torch.eye(mat.size(-1), device=mat.device, dtype=mat.dtype)
@@ -171,7 +171,8 @@ def train_lvmogp_ssvi(config: GPSSVIConfig, Y: torch.Tensor, X_data: torch.Tenso
         psi1 = sf2 * c1 * safe_exp(-0.5 * ((alpha * diff ** 2) / d1.unsqueeze(1)).sum(-1))  # (B, M)
 
         d2 = 1.0 + 2.0 * alpha * s2  # (B, D_x+Q)
-        c2 = d2.rsqrt().prod(-1, keepdim=True)  # (B, 1)
+        log_c2 = -0.5 * torch.log(d2).sum(-1, keepdim=True)
+        c2 = torch.exp(log_c2)                                   # (B,1)
         ZZ = Z.unsqueeze(1) - Z.unsqueeze(0)  # (M, M, D_x+Q)
         dist = (alpha * ZZ ** 2).sum(-1)  # (M, M)
         mid = 0.5 * (Z.unsqueeze(1) + Z.unsqueeze(0))  # (M, M, D_x+Q)
@@ -323,7 +324,7 @@ def train_lvmogp_ssvi(config: GPSSVIConfig, Y: torch.Tensor, X_data: torch.Tenso
 
                 # 3) hyperparameter values
                 print(f"    log_sf2={log_sf2.item():.3f}, "
-                    f"log_beta={log_beta_inv.item():.3f}, "
+                    f"log_beta_inv={log_beta_inv.item():.3f}, "
                     f"log_alpha min/max={log_alpha.min():.3f}/{log_alpha.max():.3f}")
 
                 # 4) gradient norms for each block
@@ -357,7 +358,7 @@ def train_lvmogp_ssvi(config: GPSSVIConfig, Y: torch.Tensor, X_data: torch.Tenso
         with torch.no_grad():
             for par, key in ((log_sf2, "log_sf2"),
                              (log_alpha, "log_alpha"),
-                             (log_beta_inv, "log_beta")):
+                             (log_beta_inv, "log_beta_inv")):
                 par.clamp_(*BOUNDS[key])
 
             K_MM, K_inv = update_K_and_inv()  # (M, M), (M, M)
