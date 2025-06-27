@@ -31,8 +31,8 @@ MAX_EXP = 60.0
 
 
 def _safe_exp(x: torch.Tensor) -> torch.Tensor:
-    """Clamp-then-exp to avoid overflow."""
-    return torch.exp(torch.clamp(x, max=MAX_EXP))
+    """Clamp-then-exp to avoid overflow and underflow."""
+    return torch.exp(torch.clamp(x, min=-MAX_EXP, max=MAX_EXP))
 
 
 def _chol_safe(mat: torch.Tensor, eps: float = 1e-6) -> torch.Tensor:
@@ -168,13 +168,16 @@ class LVMOGP_SSVI_Torch:
         psi0  = mu.new_full((mu.size(0),), sf2.item())         # (B,)
 
         d1    = alpha * s2 + 1.0
-        c1    = d1.rsqrt().prod(-1, keepdim=True)
+        # numerically-stable: log-prod → exp(sum log)
+        log_c1 = -0.5 * torch.log(d1).sum(-1, keepdim=True)
+        c1 = torch.exp(log_c1)                                   # (B,1)
         diff  = mu.unsqueeze(1) - Z                           # (B,M,D_x+Q)
         psi1  = sf2 * c1 * _safe_exp(
                     -0.5 * ((alpha * diff**2) / d1.unsqueeze(1)).sum(-1))
 
         d2    = 1.0 + 2.0 * alpha * s2
-        c2    = d2.rsqrt().prod(-1, keepdim=True)
+        log_c2 = -0.5 * torch.log(d2).sum(-1, keepdim=True)
+        c2 = torch.exp(log_c2)                                   # (B,1)
         ZZ    = Z.unsqueeze(1) - Z.unsqueeze(0)               # (M,M,D_x+Q)
         dist  = (alpha * ZZ**2).sum(-1)
         mid   = 0.5 * (Z.unsqueeze(1) + Z.unsqueeze(0))
