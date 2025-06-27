@@ -21,7 +21,7 @@ import torch
 import numpy as np
 
 
-from src.lvmogp.gp_lvm_ssvi_core import train_gp_lvm_ssvi
+from src.lvmogp.gp_lvm_ssvi_core import train_lvmogp_ssvi
 from src.gp_dataclasses    import GPSSVIConfig
 
 # global settings & tiny helpers
@@ -60,8 +60,8 @@ class LVMOGP_SSVI_Torch:
         data                : torch.Tensor,     # (N , D_out)
         X_data              : torch.Tensor,     # (N , D_x )
         X_data_fn           : torch.Tensor,     # (N , 1)  – function idx
-        H_data_mean         : torch.Tensor,     # (N , Q   )
-        H_data_var          : torch.Tensor,     # (N , Q   )
+        H_data_mean         : torch.Tensor,     # (num_fns , Q)
+        H_data_var          : torch.Tensor,     # (num_fns , Q)
         kernel                     = None,      # kept for API parity
         num_inducing_variables: Optional[int] = None,
         inducing_variable         = None,
@@ -75,30 +75,28 @@ class LVMOGP_SSVI_Torch:
         # store raw data
         self.Y      = data.to(self.DEV)           # (N , D_out)
         self.X_obs  = X_data.to(self.DEV)         # (N , D_x )
-        self.fn_idx = X_data_fn.to(self.DEV)      # kept for completeness
+        self.fn_idx = X_data_fn.to(self.DEV).long().squeeze()  # (N,) - function indices
 
         self.N , self.D = self.Y.shape
         self.D_x        = self.X_obs.shape[1]
-        self.Q          = H_data_mean.shape[1]
+        self.num_fns, self.Q = H_data_mean.shape
 
-        # latent H initial values
-        self.H_mean    = H_data_mean.to(self.DEV).clone()          # (N,Q)
-        self.H_log_s2  = torch.log(H_data_var.to(self.DEV))        # (N,Q)
+        # latent H initial values (per function)
+        self.H_mean    = H_data_mean.to(self.DEV).clone()          # (num_fns, Q)
+        self.H_var     = H_data_var.to(self.DEV).clone()           # (num_fns, Q)
 
-        # inducing inputs in latent space
+        # inducing inputs in FULL latent space (D_x + Q)
         if inducing_variable is None:
             if num_inducing_variables is None:
                 raise ValueError("Specify `num_inducing_variables` or supply `inducing_variable`.")
-            Z = self.H_mean[torch.randperm(self.N)[:num_inducing_variables]]
+            # Create full input by concatenating X with H[fn_idx]
+            H_per_point = self.H_mean[self.fn_idx]  # (N, Q)
+            X_full = torch.cat([self.X_obs, H_per_point], dim=1)  # (N, D_x+Q)
+            Z = X_full[torch.randperm(self.N)[:num_inducing_variables]]
         else:
             Z = inducing_variable
-        self.Z = Z.to(self.DEV).clone()   # (M,Q)
+        self.Z = Z.to(self.DEV).clone()   # (M, D_x+Q)
         self.M = self.Z.shape[0]
-
-        # static mask: observed dims are fixed during SSVI
-        mask             = torch.ones(self.D_x + self.Q, dtype=torch.float64, device=self.DEV)
-        mask[:self.D_x]  = 0.0
-        self.static_mask = mask
 
         # container for trained quantities
         self.results : Dict[str, torch.Tensor] | None = None
@@ -106,17 +104,15 @@ class LVMOGP_SSVI_Torch:
     # training
     def ssvi_train(self, config: GPSSVIConfig) -> Dict[str, torch.Tensor]:
         """Run the external optimiser and cache its result dict."""
-        # build initial variational parameters
-        mu_x0   = torch.cat([self.X_obs, self.H_mean], 1)
-        log_s20 = torch.cat(
-            [torch.full_like(self.X_obs, -10.0), self.H_log_s2], 1
-        )
-        init = {"mu_x": mu_x0, "log_s2x": log_s20, "Z": self.Z}
+        # build initial variational parameters for LVMOGP SSVI
+        init_H_dict = {
+            "H_mean": self.H_mean,  # (num_fns, Q)
+            "H_var": self.H_var,    # (num_fns, Q)
+            "Z": self.Z             # (M, D_x+Q)
+        }
 
-        # pass the "keep-observed-dims-fixed" mask
-        config.static_mask = self.static_mask
-
-        self.results = train_gp_lvm_ssvi(config, self.Y, init)
+        # Run LVMOGP SSVI training
+        self.results = train_lvmogp_ssvi(config, self.Y, self.X_obs, self.fn_idx.unsqueeze(-1), init_H_dict)
         return self.results
 
     # helpers
@@ -125,25 +121,42 @@ class LVMOGP_SSVI_Torch:
         if self.results is None:
             raise RuntimeError("Call .ssvi_train() before prediction.")
 
-        r     = self.results
-        mu_x  = r["mu_x"].to(self.DEV)                    # (N,D_x+Q)
-        H_mu  = mu_x[:, self.D_x:]                        # (N,Q)
+        r = self.results
         return (
-            H_mu,                                         # posterior mean of H
-            r["log_s2x"].to(self.DEV)[:, self.D_x:],      # log-var of   H
-            r["Z"].to(self.DEV),                          # inducing Z
+            r["H_mean"].to(self.DEV),                         # (num_fns, Q)
+            r["H_log_s2"].to(self.DEV),                       # (num_fns, Q)
+            r["Z"].to(self.DEV),                              # (M, D_x+Q)
             torch.tensor(r["log_sf2"], device=self.DEV),
-            r["log_alpha"].to(self.DEV),
+            r["log_alpha"].to(self.DEV),                      # (D_x+Q,)
             torch.tensor(r["log_beta_inv"], device=self.DEV),
-            r["m_u"].to(self.DEV),
-            r["C_u"].to(self.DEV),
+            r["m_u"].to(self.DEV),                            # (D, M)
+            r["C_u"].to(self.DEV),                            # (D, M, M)
         )
+
+    def _get_full_input(self, X_data, X_data_fn, H_mean_vals, H_log_s2_vals=None):
+        """
+        Create full input by concatenating X with H[fn_idx]
+        X_data: (N*, D_x)
+        X_data_fn: (N*,) - function indices  
+        H_mean_vals: (num_fns, Q)
+        Returns: X_full_mean (N*, D_x+Q), X_full_var (N*, D_x+Q) if H_log_s2_vals provided
+        """
+        H_per_point = H_mean_vals[X_data_fn]  # (N*, Q)
+        X_full_mean = torch.cat([X_data, H_per_point], dim=1)  # (N*, D_x+Q)
+        
+        if H_log_s2_vals is not None:
+            H_var_per_point = torch.exp(H_log_s2_vals[X_data_fn])  # (N*, Q)
+            X_var_fixed = torch.full_like(X_data, 1e-8)  # X is observed, very small variance
+            X_full_var = torch.cat([X_var_fixed, H_var_per_point], dim=1)  # (N*, D_x+Q)
+            return X_full_mean, X_full_var
+        else:
+            return X_full_mean
 
     @staticmethod
     def _kernel(x, z, log_sf2, log_alpha):
         sf2   = _safe_exp(log_sf2)
-        alpha = _safe_exp(log_alpha)                      # (Q,)
-        diff  = x.unsqueeze(-2) - z                       # (...,1,Q)-(M,Q)
+        alpha = _safe_exp(log_alpha)                      # (D_x+Q,)
+        diff  = x.unsqueeze(-2) - z                       # (...,1,D_x+Q)-(M,D_x+Q)
         return sf2 * _safe_exp(-0.5 * (diff**2 * alpha).sum(-1))
 
     @staticmethod
@@ -156,13 +169,13 @@ class LVMOGP_SSVI_Torch:
 
         d1    = alpha * s2 + 1.0
         c1    = d1.rsqrt().prod(-1, keepdim=True)
-        diff  = mu.unsqueeze(1) - Z                           # (B,M,Q)
+        diff  = mu.unsqueeze(1) - Z                           # (B,M,D_x+Q)
         psi1  = sf2 * c1 * _safe_exp(
                     -0.5 * ((alpha * diff**2) / d1.unsqueeze(1)).sum(-1))
 
         d2    = 1.0 + 2.0 * alpha * s2
         c2    = d2.rsqrt().prod(-1, keepdim=True)
-        ZZ    = Z.unsqueeze(1) - Z.unsqueeze(0)               # (M,M,Q)
+        ZZ    = Z.unsqueeze(1) - Z.unsqueeze(0)               # (M,M,D_x+Q)
         dist  = (alpha * ZZ**2).sum(-1)
         mid   = 0.5 * (Z.unsqueeze(1) + Z.unsqueeze(0))
         mu_c  = (mu.unsqueeze(1).unsqueeze(1) - mid)**2
@@ -174,7 +187,7 @@ class LVMOGP_SSVI_Torch:
     @torch.no_grad()
     def predict_f(
         self,
-        Xnew: Tuple[torch.Tensor, torch.Tensor],       # (mu_full , var_full)
+        Xnew: Tuple[torch.Tensor, torch.Tensor],       # (X_new, X_new_fn) or (X_full_mean, X_full_var)
         *,                                             # keyword-only flags
         full_cov: bool = False,
         full_output_cov: bool = False,
@@ -182,26 +195,32 @@ class LVMOGP_SSVI_Torch:
         """
         Return GPflow-style predictive mean and *diagonal* variance.
 
-        Xnew  = (X_mean_full , X_var_full) where each tensor has shape
-                (N*, D_x + Q).  Only the diagonal predictive covariance
-                is implemented – exactly like `gpflow.models.GPR.predict_f()`.
+        For LVMOGP, Xnew can be:
+        1. (X_new, X_new_fn) where X_new is (N*, D_x) and X_new_fn is (N*,) function indices
+        2. (X_full_mean, X_full_var) where both are (N*, D_x+Q) - full input representation
         """
         # CAN BE FIXED IF NEEDED
         if full_cov or full_output_cov:
             raise NotImplementedError("Only diagonal predictive cov is implemented.")
 
         # 2. Unpack trained parameters
-        (H_mu_tr, H_log_s2_tr,        # not used here, but returned for completeness
+        (H_mu_tr, H_log_s2_tr,
         Z, log_sf2, log_alpha,
         log_beta_inv, m_u, C_u) = self._unpack()
 
-        # 3. Split observed & latent parts of Xnew
-        Xnew_mean_full, Xnew_var_full = Xnew                    # (N*, D_x+Q)
-        mu_H = Xnew_mean_full[:, self.D_x:]                    # (N*, Q)
-        s2_H = Xnew_var_full[:,  self.D_x:]                    # (N*, Q)
+        # 3. Handle different input formats
+        Xnew_mean, Xnew_var = Xnew
+        if Xnew_mean.shape[1] == self.D_x:
+            # Format 1: (X_new, X_new_fn)
+            X_new = Xnew_mean                                      # (N*, D_x)
+            X_new_fn = Xnew_var.long().squeeze()                   # (N*,) - function indices
+            mu_full, s2_full = self._get_full_input(X_new, X_new_fn, H_mu_tr, H_log_s2_tr)
+        else:
+            # Format 2: (X_full_mean, X_full_var)
+            mu_full, s2_full = Xnew_mean, Xnew_var               # (N*, D_x+Q)
 
         # 4. Psi-statistics for the new points
-        psi0, psi1, psi2 = self._psi(mu_H, s2_H, Z, log_sf2, log_alpha)
+        psi0, psi1, psi2 = self._psi(mu_full, s2_full, Z, log_sf2, log_alpha)
 
         # 5. Posterior predictive moments
         Kuu      = self._kernel(Z, Z, log_sf2, log_alpha)
@@ -228,11 +247,38 @@ class LVMOGP_SSVI_Torch:
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Add learned homoscedastic Gaussian noise to `predict_f`."""
         mu_f, var_f = self.predict_f(Xnew, full_cov=full_cov, full_output_cov=full_output_cov)
-        noise = _safe_exp(torch.tensor(self.results["log_beta_inv"], device=self.DEV))
-        return mu_f, var_f + noise
+        
+        # Add noise variance
+        if self.results is not None:
+            noise = _safe_exp(torch.tensor(self.results["log_beta_inv"], device=self.DEV))
+            return mu_f, var_f + noise
+        else:
+            raise RuntimeError("Call .ssvi_train() before prediction.")
 
     # optional – not implemented
     def predict_f_point(self, *args, **kwargs):
         raise NotImplementedError("Point predictions are not provided.")
+
+    # Additional method for compatibility with GPflow interface
+    def fill_Hs(self, X_data=None, X_data_fn=None):
+        """
+        Compatibility method that creates full input like the original GPflow implementation.
+        Returns (X_full_mean, X_full_var) by concatenating X with H[fn_idx].
+        """
+        if self.results is None:
+            # Use initial values
+            H_mean_vals = self.H_mean
+            H_var_vals = self.H_var
+        else:
+            # Use trained values
+            H_mean_vals = self.results["H_mean"].to(self.DEV)
+            H_var_vals = torch.exp(self.results["H_log_s2"].to(self.DEV))
+        
+        if X_data is None:
+            X_data = self.X_obs
+        if X_data_fn is None:
+            X_data_fn = self.fn_idx
+        
+        return self._get_full_input(X_data, X_data_fn, H_mean_vals, torch.log(H_var_vals))
 
 
