@@ -395,7 +395,7 @@ def train_lvmogp_ssvi(config: GPSSVIConfig, Y: torch.Tensor, X_data: torch.Tenso
         if t % 250 == 0:
             with torch.no_grad():
                 # For prediction, get full input
-                mu_full_pred, _ = get_full_input(X_data, X_data_fn, H_mean)  # (N, D_x+Q)
+                mu_full_pred = get_full_input(X_data, X_data_fn, H_mean)  # (N, D_x+Q)
                 A = k_se(mu_full_pred, Z, log_sf2, log_alpha) @ K_inv  # (N, M)
                 predictive_mean_snap = A @ m_u.T  # (N, D)
                 predictive_variance_snap = torch.stack([(A @ Sigma_u(C_u)[d] * A).sum(-1) for d in range(D)], dim=1)  # (N, D)
@@ -440,7 +440,7 @@ def train_lvmogp_ssvi(config: GPSSVIConfig, Y: torch.Tensor, X_data: torch.Tenso
     
     with torch.no_grad():
         # Final prediction
-        mu_full_final, _ = get_full_input(X_data, X_data_fn, H_mean)  # (N, D_x+Q)
+        mu_full_final = get_full_input(X_data, X_data_fn, H_mean)  # (N, D_x+Q)
         A = k_se(mu_full_final, Z, log_sf2, log_alpha) @ K_inv  # (N, M)
         predictive_mean = A @ m_u.T  # (N, D)
         predictive_variance = torch.stack([(A @ Sigma_u(C_u)[d] * A).sum(-1) for d in range(D)], dim=1)  # (N, D)
