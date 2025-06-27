@@ -141,8 +141,8 @@ def train_lvmogp_ssvi(config: GPSSVIConfig, Y: torch.Tensor, X_data: torch.Tenso
         for d in range(D):
             Lam_d = 0.5 * (Lambda_new[d] + Lambda_new[d].transpose(0, 1))  # (M,M)
             eig_val, eig_vec = torch.linalg.eigh(Lam_d)  # (M,), (M, M)
-            eig_val = torch.maximum(eig_val, torch.full_like(eig_val, -eps))
-            S_d = torch.linalg.inv((eig_vec * (-2.0 * eig_val - eps)) @ eig_vec.T)  # (M, M)
+            eig_val = torch.minimum(eig_val, torch.full_like(eig_val, -eps))
+            S_d = torch.linalg.inv((eig_vec * (-2.0 * eig_val)) @ eig_vec.T)  # (M, M)
             C_u[d] = cholesky_safe(S_d, eps)  # (M, M)
             m_u[d] = S_d @ h_new[d]  # (M,)
 
