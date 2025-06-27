@@ -34,12 +34,12 @@ def train_lvmogp_ssvi(config: GPSSVIConfig, Y: torch.Tensor, X_data: torch.Tenso
     JITTER, MAX_EXP = 5e-6, 60.0,
     CLIP_QUAD, GR_CLIP =  1e6, 20.0
     BOUNDS = {"log_sf2": (-8.0, 8.0), "log_alpha": (-20.0, 20.0),
-              "log_beta_inv": (-8.0, 5.0), "log_s2H": (-10.0, 10.0)}
+              "log_beta": (-8.0, 5.0), "log_s2H": (-10.0, 10.0)}
     NUM_U_SAMPLES = config.num_u_samples_per_iter
     print(f"num_u_samples_per_iter: {NUM_U_SAMPLES}")
 
     rho = lambda t, t0=config.rho.t0, k=0.6: (t0 + t) ** (-config.rho.k)  # SVI step size
-    safe_exp = lambda x: torch.exp(torch.clamp(x, min=-MAX_EXP, max=MAX_EXP))
+    safe_exp = lambda x: torch.exp(torch.clamp(x, max=MAX_EXP))
 
     def cholesky_safe(mat, eps=1e-6):  # mat (., M, M)
         eye = torch.eye(mat.size(-1), device=mat.device, dtype=mat.dtype)
@@ -171,8 +171,7 @@ def train_lvmogp_ssvi(config: GPSSVIConfig, Y: torch.Tensor, X_data: torch.Tenso
         psi1 = sf2 * c1 * safe_exp(-0.5 * ((alpha * diff ** 2) / d1.unsqueeze(1)).sum(-1))  # (B, M)
 
         d2 = 1.0 + 2.0 * alpha * s2  # (B, D_x+Q)
-        log_c2 = -0.5 * torch.log(d2).sum(-1, keepdim=True)
-        c2 = torch.exp(log_c2)                                   # (B,1)
+        c2 = d2.rsqrt().prod(-1, keepdim=True)  # (B, 1)
         ZZ = Z.unsqueeze(1) - Z.unsqueeze(0)  # (M, M, D_x+Q)
         dist = (alpha * ZZ ** 2).sum(-1)  # (M, M)
         mid = 0.5 * (Z.unsqueeze(1) + Z.unsqueeze(0))  # (M, M, D_x+Q)
@@ -249,9 +248,13 @@ def train_lvmogp_ssvi(config: GPSSVIConfig, Y: torch.Tensor, X_data: torch.Tenso
                     - 0.5 * sigma2.log().unsqueeze(-1)
                     - 0.5 * quad).sum(-1)  # (B,)
         
-        ll_mean  = log_like.mean()
-        elbo_mean = ll_mean                      # KL-H теперь учитываем снаружи
-        return elbo_mean, ll_mean, r.detach(), Q_mat.detach()
+        # KL for H only (not for X which is observed)
+        kl_H_batch = compute_kl_H(H_mean[X_data_fn[idx]], H_log_s2[X_data_fn[idx]]) / N  # scale by total N
+        
+        ll_mean  = log_like.mean()       
+        klH_mean = kl_H_batch
+        elbo_mean = ll_mean - klH_mean
+        return elbo_mean, ll_mean, klH_mean, r.detach(), Q_mat.detach()
 
     # --------------------------- optimizers ------------------------------
     opt_H = torch.optim.Adam([H_mean, H_log_s2], lr=LR_H)
@@ -288,18 +291,18 @@ def train_lvmogp_ssvi(config: GPSSVIConfig, Y: torch.Tensor, X_data: torch.Tenso
         opt_alpha.zero_grad(set_to_none=True)
         K_MM, K_inv = update_K_and_inv()
         U_smpls = sample_U_batch(m_u, C_u, NUM_U_SAMPLES)
-        elbo_vec, ll_vec, r_stack, Q_stack = vmap(
+        elbo_vec, ll_vec, klH_vec, r_stack, Q_stack = vmap(
             lambda u: local_step(idx, u, Sigma_u(C_u), True)
         )(U_smpls)
         local_elbo_batch_mean = elbo_vec.mean()
         ll_b_mean   = ll_vec.mean()
+        klH_b_mean  = klH_vec.mean()
         r_b_mean    = r_stack.mean(0).sum(0)
         Q_b_mean    = Q_stack.mean(0).sum(0)
         diff_U_avg = (U_smpls - m_u).mean(0)  
         local_elbo = local_elbo_batch_mean * N
-        kl_u       = compute_kl_u(m_u, C_u, K_MM, K_inv)
-        kl_H_total = compute_kl_H(H_mean, H_log_s2)    # один раз за итерацию
-        full_elbo  = local_elbo - kl_H_total - kl_u
+        kl_u = compute_kl_u(m_u, C_u, K_MM, K_inv)
+        full_elbo = local_elbo - kl_u
         loss_hyp = -full_elbo
         loss_hyp.backward()
 
@@ -307,7 +310,7 @@ def train_lvmogp_ssvi(config: GPSSVIConfig, Y: torch.Tensor, X_data: torch.Tenso
             with torch.no_grad():
                 # 1) full ELBO and KL terms
                 LL_batch  = (ll_b_mean  * N).item()
-                KLH_batch = kl_H_total.item()
+                KLH_batch = (klH_b_mean * N).item()
                 kl_u_val  = kl_u.item()
                 full_elbo = LL_batch - KLH_batch - kl_u_val
                 print(f"\nBATCH FULL ELBO @ {t:3d}: {full_elbo:.4e}  "
@@ -320,7 +323,7 @@ def train_lvmogp_ssvi(config: GPSSVIConfig, Y: torch.Tensor, X_data: torch.Tenso
 
                 # 3) hyperparameter values
                 print(f"    log_sf2={log_sf2.item():.3f}, "
-                    f"log_beta_inv={log_beta_inv.item():.3f}, "
+                    f"log_beta={log_beta_inv.item():.3f}, "
                     f"log_alpha min/max={log_alpha.min():.3f}/{log_alpha.max():.3f}")
 
                 # 4) gradient norms for each block
@@ -354,7 +357,7 @@ def train_lvmogp_ssvi(config: GPSSVIConfig, Y: torch.Tensor, X_data: torch.Tenso
         with torch.no_grad():
             for par, key in ((log_sf2, "log_sf2"),
                              (log_alpha, "log_alpha"),
-                             (log_beta_inv, "log_beta_inv")):
+                             (log_beta_inv, "log_beta")):
                 par.clamp_(*BOUNDS[key])
 
             K_MM, K_inv = update_K_and_inv()  # (M, M), (M, M)
@@ -374,12 +377,12 @@ def train_lvmogp_ssvi(config: GPSSVIConfig, Y: torch.Tensor, X_data: torch.Tenso
         if t % 25 == 0 or t == 1:
             with torch.no_grad():
                 U_smpls_full = sample_U_batch(m_u, C_u, NUM_U_SAMPLES)
-                elbo_vec, ll_vec, *_ = vmap(
+                elbo_vec, ll_vec, klH_vec, *_ = vmap(
                     lambda u: local_step(torch.arange(N, device=DEV), u, Sigma_u(C_u), False)
                 )(U_smpls_full) 
                 local_elbo_full_n_mean = elbo_vec.mean()
                 LL_full   = (ll_vec.mean()  * N).item()
-                KLH_full  = compute_kl_H(H_mean, H_log_s2).item()
+                KLH_full  = (klH_vec.mean() * N).item()
                 kl_u_full = compute_kl_u(m_u, C_u, K_MM, K_inv).item()
                 full_elbo = LL_full - KLH_full - kl_u_full
             iters.append(t)
@@ -397,9 +400,7 @@ def train_lvmogp_ssvi(config: GPSSVIConfig, Y: torch.Tensor, X_data: torch.Tenso
                 mu_full_pred = get_full_input(X_data, X_data_fn, H_mean)  # (N, D_x+Q)
                 A = k_se(mu_full_pred, Z, log_sf2, log_alpha) @ K_inv  # (N, M)
                 predictive_mean_snap = A @ m_u.T  # (N, D)
-                predictive_variance_snap = (torch.stack([(A @ Sigma_u(C_u)[d] * A).sum(-1)
-                                                         for d in range(D)], dim=1)
-                                             + noise_var())                              # (N,D)
+                predictive_variance_snap = torch.stack([(A @ Sigma_u(C_u)[d] * A).sum(-1) for d in range(D)], dim=1)  # (N, D)
                 iters_snapshot = iters.copy()
                 snapshot = {
                     "H_mean": H_mean.detach().cpu().clone(),
@@ -444,9 +445,7 @@ def train_lvmogp_ssvi(config: GPSSVIConfig, Y: torch.Tensor, X_data: torch.Tenso
         mu_full_final = get_full_input(X_data, X_data_fn, H_mean)  # (N, D_x+Q)
         A = k_se(mu_full_final, Z, log_sf2, log_alpha) @ K_inv  # (N, M)
         predictive_mean = A @ m_u.T  # (N, D)
-        predictive_variance = (torch.stack([(A @ Sigma_u(C_u)[d] * A).sum(-1)
-                                            for d in range(D)], dim=1)
-                               + noise_var())                         # (N,D)
+        predictive_variance = torch.stack([(A @ Sigma_u(C_u)[d] * A).sum(-1) for d in range(D)], dim=1)  # (N, D)
 
     results_dict["predictive_mean"] = predictive_mean.cpu()
     results_dict["predictive_variance"] = predictive_variance.cpu()
