@@ -2,7 +2,11 @@
 """
 Run GP-LVM SSVI from a YAML config.
 
+oil dataset:
 $ python run_gp_lvm_ssvi.py --config ssvi_configs/original_ssvi_config.yaml
+
+swiss roll dataset:
+$ python run_gp_lvm_ssvi.py --config ssvi_configs/swiss_roll_ssvi_config.yaml
 """
 from typing import get_type_hints
 import argparse, yaml, torch
