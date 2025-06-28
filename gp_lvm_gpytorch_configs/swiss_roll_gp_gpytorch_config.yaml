@@ -1,0 +1,30 @@
+# Swiss Roll bGPLVM Configuration
+
+device: auto
+debug: false
+
+# dataset configuration
+dataset:
+  type: swiss_roll     # "oil" or "swiss_roll" 
+  n_samples: 1000      # number of Swiss Roll samples to generate
+  noise: 0.1           # noise level for Swiss Roll generation
+  random_state: 42     # random seed for reproducible dataset generation
+
+optimizer:
+  lr: 0.01
+
+training:
+  batch_size: 100
+  total_iters: 5000    # Reduced for Swiss Roll
+  smoke_test: false
+
+inducing:
+  n_inducing: 25                 # number of inducing points
+  selection: perm       # strategy: "perm" or "kmeans"
+  seed: 19              # fixed seed (can be null if not needed)
+
+init_latent_dist:
+  method: default
+  custom_path: null
+
+q_latent:   2         # Q=2 for Swiss Roll (true latent dimensionality) 
