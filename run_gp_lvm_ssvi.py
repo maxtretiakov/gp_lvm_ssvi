@@ -37,7 +37,11 @@ def _to_dataclass(cls, src: Any):
     for fld in dataclasses.fields(cls):
         key = fld.name
         if key not in src:
-            raise ValueError(f"Missing '{key}' in config")
+            # Skip fields that have default values
+            if fld.default is not dataclasses.MISSING or fld.default_factory is not dataclasses.MISSING:
+                continue
+            else:
+                raise ValueError(f"Missing '{key}' in config")
 
         val = src[key]
         typ = type_hints[key]
