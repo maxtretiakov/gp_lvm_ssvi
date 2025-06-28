@@ -1,0 +1,28 @@
+{
+  "q_latent": 2,
+  "device": "auto",
+  "debug": false,
+  "inducing": {
+    "n_inducing": 25,
+    "selection": "perm",
+    "seed": 19
+  },
+  "optimizer": {
+    "lr": 0.01
+  },
+  "training": {
+    "batch_size": 100,
+    "total_iters": 5000,
+    "smoke_test": false
+  },
+  "init_latent_dist": {
+    "method": "default",
+    "custom_path": null
+  },
+  "dataset": {
+    "type": "swiss_roll",
+    "n_samples": 1000,
+    "noise": 0.1,
+    "random_state": 42
+  }
+}

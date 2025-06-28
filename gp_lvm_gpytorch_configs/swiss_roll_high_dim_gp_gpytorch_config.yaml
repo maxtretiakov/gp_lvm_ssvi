@@ -1,0 +1,30 @@
+# Swiss Roll bGPLVM Configuration - Higher Dimensional Latent Space
+
+device: auto
+debug: false
+
+# dataset configuration
+dataset:
+  type: swiss_roll     # "oil" or "swiss_roll" 
+  n_samples: 1500      # number of Swiss Roll samples to generate
+  noise: 0.05          # lower noise level for cleaner patterns
+  random_state: 123    # different random seed
+
+optimizer:
+  lr: 0.01
+
+training:
+  batch_size: 100
+  total_iters: 8000    # More iterations for higher dimensional case
+  smoke_test: false
+
+inducing:
+  n_inducing: 25                 # number of inducing points
+  selection: perm       # strategy: "perm" or "kmeans"
+  seed: 42              # fixed seed
+
+init_latent_dist:
+  method: default
+  custom_path: null
+
+q_latent:   6         # Q=6 for testing higher dimensional latent space 

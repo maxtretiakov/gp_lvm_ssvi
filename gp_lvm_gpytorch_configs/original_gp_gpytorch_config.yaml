@@ -1,6 +1,10 @@
 device: auto
 debug: false
 
+# dataset configuration  
+dataset:
+  type: oil            # "oil" or "swiss_roll"
+
 optimizer:
   lr: 0.01
 
