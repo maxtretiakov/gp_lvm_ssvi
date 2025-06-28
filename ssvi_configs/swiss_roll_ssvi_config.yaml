@@ -1,10 +1,15 @@
+# Swiss Roll GP-LVM SSVI Configuration
+
 # general
 device: cuda          # "cuda", "cpu", or "auto"
 debug: false          # print tensor shapes on first outer loop
 
-# dataset configuration  
+# dataset configuration
 dataset:
-  type: oil            # "oil" or "swiss_roll"
+  type: swiss_roll     # "oil" or "swiss_roll" 
+  n_samples: 1000      # number of Swiss Roll samples to generate
+  noise: 0.1           # noise level for Swiss Roll generation
+  random_state: 42     # random seed for reproducible dataset generation
 
 # learning rates
 lr:
@@ -42,8 +47,8 @@ rho:
   k:  0.6
 
 # model structure
-q_latent:   12        # Q  (= D for the oil data)
+q_latent:   2         # Q=2 for Swiss Roll (true latent dimensionality)
 
 # additional
 init_signal_to_noise_ratio: 1.0
-num_u_samples_per_iter: 2
+num_u_samples_per_iter: 2 

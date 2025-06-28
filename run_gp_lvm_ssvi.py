@@ -2,7 +2,11 @@
 """
 Run GP-LVM SSVI from a YAML config.
 
+oil dataset:
 $ python run_gp_lvm_ssvi.py --config ssvi_configs/original_ssvi_config.yaml
+
+swiss roll dataset:
+$ python run_gp_lvm_ssvi.py --config ssvi_configs/swiss_roll_ssvi_config.yaml
 """
 from typing import get_type_hints
 import argparse, yaml, torch
@@ -17,6 +21,7 @@ from sklearn.model_selection import train_test_split
 from src.gp_lvm_ssvi_core import train_gp_lvm_ssvi
 from src.gp_dataclasses import *
 from src.data_loaders.oil_data_loader import load_Y
+from src.data_loaders.swiss_roll_loader import load_swiss_roll_data
 from src.oil_dataset_plot_core import load_oil_fractions, plot_oil_dataset_gp_lvm_results
 from src.helpers import initialize_latents_and_z
 from src.evaluate_gp_metrics import evaluate_gp_lvm_model_metrics, save_metrics_json
@@ -36,7 +41,11 @@ def _to_dataclass(cls, src: Any):
     for fld in dataclasses.fields(cls):
         key = fld.name
         if key not in src:
-            raise ValueError(f"Missing '{key}' in config")
+            # Skip fields that have default values
+            if fld.default is not dataclasses.MISSING or fld.default_factory is not dataclasses.MISSING:
+                continue
+            else:
+                raise ValueError(f"Missing '{key}' in config")
 
         val = src[key]
         typ = type_hints[key]
@@ -45,7 +54,11 @@ def _to_dataclass(cls, src: Any):
             kwargs[key] = _to_dataclass(typ, val)
         else:
             try:
-                kwargs[key] = typ(val)
+                # Handle basic type conversion
+                if typ in (int, float, str, bool):
+                    kwargs[key] = typ(val)
+                else:
+                    kwargs[key] = val
             except Exception:
                 kwargs[key] = val  # fallback if conversion fails
 
@@ -59,10 +72,9 @@ def load_config(path: Path | str) -> GPSSVIConfig:
     return _to_dataclass(GPSSVIConfig, raw)
 
 
-def start_gp_lvm_ssvi_training(cfg: GPSSVIConfig):
+def start_gp_lvm_ssvi_training(cfg: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict: dict):
     torch.set_default_dtype(torch.float64)
-
-    train_gp_lvm_ssvi(cfg)
+    return train_gp_lvm_ssvi(cfg, Y, init_latents_z_dict)
 
 
 if __name__ == "__main__":
@@ -75,10 +87,26 @@ if __name__ == "__main__":
     print("CONFIG:",cfg)
     
     PROJECT_ROOT = Path(__file__).resolve().parent
-    oil_data_path = PROJECT_ROOT / "oil_data"
-
-    Y, labels = load_Y(oil_data_path, cfg.device)
-    fractions = load_oil_fractions(oil_data_path)
+    
+    # Load data based on dataset type
+    if cfg.dataset.type == "oil":
+        oil_data_path = PROJECT_ROOT / "oil_data"
+        Y, labels = load_Y(oil_data_path, cfg.device)
+        fractions = load_oil_fractions(oil_data_path)
+        dataset_type = "oil"
+    elif cfg.dataset.type == "swiss_roll":
+        Y, labels = load_swiss_roll_data(
+            n_samples=cfg.dataset.n_samples,
+            noise=cfg.dataset.noise,
+            random_state=cfg.dataset.random_state if cfg.dataset.random_state is not None else 42,
+            device=cfg.device
+        )
+        fractions = labels  # For Swiss Roll, use colors as "fractions"
+        dataset_type = "swiss_roll"
+    else:
+        raise ValueError(f"Unknown dataset type: {cfg.dataset.type}")
+    
+    print(f"Loaded {dataset_type} dataset with shape: {Y.shape}")
     
     init_latents_and_z_dict = initialize_latents_and_z(Y, cfg)
     train_results_dict = train_gp_lvm_ssvi(cfg, Y, init_latents_and_z_dict)
@@ -102,5 +130,6 @@ if __name__ == "__main__":
         Y, 
         metrics,
         config_name,
-        save_results_path
+        save_results_path,
+        dataset_type
     )

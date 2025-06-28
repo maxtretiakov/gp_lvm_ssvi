@@ -3,6 +3,7 @@ from pathlib import Path
 import torch
 
 from src.oil_dataset_plot_core import plot_oil_dataset_gp_lvm_results, plot_gp_lvm_final_extra_curves
+from src.swiss_roll_plot_core import plot_swiss_roll_gp_lvm_results, plot_swiss_roll_extra_curves
 from src.evaluate_gp_metrics import evaluate_gp_lvm_model_metrics, save_metrics_json
 
 
@@ -13,20 +14,23 @@ def tensor_dict_to_json(d):
     }
 
 
-def save_snapshot(snap, labels, fractions, Y, save_dir):
+def save_snapshot(snap, labels, fractions, Y, save_dir, dataset_type="oil"):
     save_dir.mkdir(parents=True, exist_ok=True)
 
     snap_json = tensor_dict_to_json(snap)
     with open(save_dir / "snapshot_model.json", "w") as f:
         json.dump(snap_json, f, indent=2)
 
-    plot_oil_dataset_gp_lvm_results(snap, labels, fractions, save_dir)
+    if dataset_type == "oil":
+        plot_oil_dataset_gp_lvm_results(snap, labels, fractions, save_dir)
+    elif dataset_type == "swiss_roll":
+        plot_swiss_roll_gp_lvm_results(snap, Y, labels, save_dir)
 
     snap_metrics = evaluate_gp_lvm_model_metrics(snap, Y)
     save_metrics_json(snap_metrics, save_dir / "snapshot_metrics.json")
 
 
-def save_final_results(results_dict, labels, fractions, metrics, config_name, save_dir):
+def save_final_results(results_dict, labels, fractions, Y, metrics, config_name, save_dir, dataset_type="oil"):
     save_dir.mkdir(parents=True, exist_ok=True)
 
     final_json_keys = [
@@ -40,8 +44,12 @@ def save_final_results(results_dict, labels, fractions, metrics, config_name, sa
     torch.save(results_dict["predictive_mean"], save_dir / "predictive_mean.pt")
     torch.save(results_dict["predictive_variance"], save_dir / "predictive_variance.pt")
 
-    plot_oil_dataset_gp_lvm_results(results_dict, labels, fractions, save_dir)
-    plot_gp_lvm_final_extra_curves(results_dict, save_dir)
+    if dataset_type == "oil":
+        plot_oil_dataset_gp_lvm_results(results_dict, labels, fractions, save_dir)
+        plot_gp_lvm_final_extra_curves(results_dict, save_dir)
+    elif dataset_type == "swiss_roll":
+        plot_swiss_roll_gp_lvm_results(results_dict, Y, labels, save_dir)
+        plot_swiss_roll_extra_curves(results_dict, save_dir)
 
     metrics_path = save_dir / f"{config_name}_metrics.json"
     save_metrics_json(metrics, metrics_path)
@@ -49,15 +57,15 @@ def save_final_results(results_dict, labels, fractions, metrics, config_name, sa
     torch.save(results_dict, save_dir / "trained_model_dict.pt")
 
 
-def save_all_results(results_dict, labels, fractions, Y, metrics, config_name, base_save_dir):
+def save_all_results(results_dict, labels, fractions, Y, metrics, config_name, base_save_dir, dataset_type="oil"):
     snapshots = results_dict.get("snapshots", {})
 
     if snapshots:
         for iter_num, snap in snapshots.items():
             snap_dir = base_save_dir / f"{iter_num}_iters_results"
-            save_snapshot(snap, labels, fractions, Y, snap_dir)
+            save_snapshot(snap, labels, fractions, Y, snap_dir, dataset_type)
     else:
         print("Snapshots dict is empty. Skipping snapshot saving.")
 
     final_dir = base_save_dir / "final_results"
-    save_final_results(results_dict, labels, fractions, metrics, config_name, final_dir)
+    save_final_results(results_dict, labels, fractions, Y, metrics, config_name, final_dir, dataset_type)

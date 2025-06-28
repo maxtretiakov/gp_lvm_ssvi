@@ -10,6 +10,14 @@ class InducingConfig:
     seed: Optional[int] = None              # Random seed (for reproducibility)
     
 @dataclass
+class DatasetConfig:
+    """Configuration for dataset selection and parameters."""
+    type: Literal["oil", "swiss_roll"] = "oil"  # Dataset type
+    n_samples: int = 1000                        # Number of samples (for synthetic datasets)
+    noise: float = 0.1                           # Noise level (for synthetic datasets)
+    random_state: Optional[int] = None           # Random seed for dataset generation
+    
+@dataclass
 class InitXDistSsvi:
     """
     Used in train_gp_lvm_ssvi:
@@ -55,11 +63,12 @@ class GPSSVIConfig:
     q_latent: int
     init_signal_to_noise_ratio: float
     num_u_samples_per_iter: int
-    lr: LR = field(default_factory=LR)
-    rho: Rho = field(default_factory=Rho)
-    training: Training = field(default_factory=Training)
-    inducing: InducingConfig = field(default_factory=InducingConfig)
-    init_latent_dist: InitXDistSsvi = field(default_factory=InitXDistSsvi)
+    lr: LR = field(default_factory=lambda: LR(x=0.0, hyp=0.0, alpha=0.0))
+    rho: Rho = field(default_factory=lambda: Rho(t0=0.0, k=0.0))
+    training: Training = field(default_factory=lambda: Training(batch_size=0, total_iters=0, inner_iters=InnerIters(start=0, after=0, switch=0)))
+    inducing: InducingConfig = field(default_factory=lambda: InducingConfig(n_inducing=0, selection="perm"))
+    init_latent_dist: InitXDistSsvi = field(default_factory=lambda: InitXDistSsvi())
+    dataset: DatasetConfig = field(default_factory=lambda: DatasetConfig())
 
     def device_resolved(self) -> torch.device:
         if self.device == "auto":
