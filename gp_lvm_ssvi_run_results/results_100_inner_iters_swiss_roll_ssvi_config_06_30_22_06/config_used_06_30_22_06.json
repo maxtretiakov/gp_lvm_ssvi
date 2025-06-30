@@ -1,0 +1,42 @@
+{
+  "device": "cuda",
+  "debug": false,
+  "jitter": 5e-06,
+  "max_exp": 60.0,
+  "q_latent": 2,
+  "init_signal_to_noise_ratio": 1.0,
+  "num_u_samples_per_iter": 2,
+  "lr": {
+    "x": 0.001,
+    "hyp": 0.001,
+    "alpha": 0.005
+  },
+  "rho": {
+    "t0": 100.0,
+    "k": 0.6
+  },
+  "training": {
+    "batch_size": 128,
+    "total_iters": 750,
+    "inner_iters": {
+      "start": 100,
+      "after": 90,
+      "switch": 50
+    }
+  },
+  "inducing": {
+    "n_inducing": 64,
+    "selection": "perm",
+    "seed": 19
+  },
+  "init_latent_dist": {
+    "method": "default",
+    "custom_path": ""
+  },
+  "dataset": {
+    "type": "swiss_roll",
+    "n_samples": 1000,
+    "noise": 0.1,
+    "random_state": 42
+  }
+}
