@@ -1,0 +1,47 @@
+# Configuration for "Learning Many Surfaces" Experiment
+# This replicates the "many_r" experiment from the notebook where
+# all surfaces are optimized simultaneously, adding one point to each iteration
+
+gp_ssvi:
+  device: cuda
+  debug: false
+
+  lr:
+    x: 1e-3
+    hyp: 1e-3
+    alpha: 5e-3
+
+  training:
+    batch_size: 128
+    total_iters: 1000
+    inner_iters:
+      start: 40
+      after: 30
+      switch: 50
+
+  init_latent_dist:
+    method: default
+    custom_path: ""
+
+  inducing:
+    n_inducing: 64
+    selection: perm
+    seed: 19
+
+  jitter: 5e-6
+  max_exp: 60.0
+
+  rho:
+    t0: 100.0
+    k: 0.6
+
+  q_latent: 12
+  init_signal_to_noise_ratio: 1.0
+  num_u_samples_per_iter: 2
+
+bo:
+  bo_steps: 20           # More steps for many surfaces experiment
+  seed: 0
+  pct_train: 50
+  test_name: many_r      # Learning many surfaces simultaneously
+  start_point: centre    # Use centre starting points 

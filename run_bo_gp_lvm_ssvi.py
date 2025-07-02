@@ -16,6 +16,7 @@ import json
 from src.bayesian_optimization.config_helper import load_full_config
 from src.bayesian_optimization.bo_gp_lvm_ssvi import bayesian_optimization_loop
 from src.bayesian_optimization.targets_helper import load_targets
+from src.bayesian_optimization.results_converter import save_notebook_compatible_results
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -152,10 +153,26 @@ if __name__ == "__main__":
     with open(save_results_path / f"ei_values_{timestamp}.json", "w") as f:
         json.dump(ei_values_list, f, indent=2)
 
-    print(f"\n=== BO COMPLETED ===")
+    # Save results in notebook-compatible CSV format for direct comparison
+    print("\nSaving Notebook-Compatible Results")
+    csv_path = save_notebook_compatible_results(
+        bo_results=results,
+        test_df=test_df,
+        targets=targets,
+        pred_mean_history=results["pred_mean_history"],
+        pred_var_history=results["pred_var_history"],
+        test_name=test_name,
+        start_point=start_point,
+        seed=seed,
+        save_path=save_results_path,
+        model_name="LVMOGP_SSVI"
+    )
+
+    print(f"\nBO COMPLETED")
     print(f"Final training set size: {bo_metrics['final_train_size']}")
     print(f"Surfaces optimized: {bo_metrics['surfaces_optimized']}")
     print(f"Final NLPD: {bo_metrics['nlpd_values'][-1]:.4f}")
     print(f"Final RMSE: {bo_metrics['rmse_values'][-1]:.4f}")
     print(f"Final Regret: {bo_metrics['regret_values'][-1]:.4f}")
     print(f"Results saved to: {save_results_path}")
+    print(f"Notebook-compatible CSV: {csv_path}")
