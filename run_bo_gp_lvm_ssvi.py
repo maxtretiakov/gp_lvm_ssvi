@@ -12,11 +12,28 @@ import pandas as pd
 import dataclasses
 import datetime
 import json
+import numpy as np
 
 from src.bayesian_optimization.config_helper import load_full_config
 from src.bayesian_optimization.bo_gp_lvm_ssvi import bayesian_optimization_loop
 from src.bayesian_optimization.targets_helper import load_targets
 from src.bayesian_optimization.results_converter import save_notebook_compatible_results
+
+
+def convert_to_json_serializable(obj):
+    """Convert numpy types to JSON-serializable Python types."""
+    if isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, list):
+        return [convert_to_json_serializable(item) for item in obj]
+    elif isinstance(obj, dict):
+        return {key: convert_to_json_serializable(value) for key, value in obj.items()}
+    else:
+        return obj
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -126,14 +143,14 @@ if __name__ == "__main__":
         "targets": final_data["targets"]
     }, save_results_path / f"final_model_state_{timestamp}.pt")
     
-    # Save BO metrics
+    # Save BO metrics (convert numpy types to JSON-serializable types)
     bo_metrics = {
         "final_train_size": len(final_data["Y_train"]),
-        "chosen_indices": results["chosen_indices"],
-        "nlpd_values": results["nlpd_values"],
-        "rmse_values": results["rmse_values"],
-        "regret_values": results["regret_values"],
-        "surfaces_optimized": results["surfaces_optimized"],
+        "chosen_indices": convert_to_json_serializable(results["chosen_indices"]),
+        "nlpd_values": convert_to_json_serializable(results["nlpd_values"]),
+        "rmse_values": convert_to_json_serializable(results["rmse_values"]),
+        "regret_values": convert_to_json_serializable(results["regret_values"]),
+        "surfaces_optimized": convert_to_json_serializable(results["surfaces_optimized"]),
         "test_name": test_name,
         "start_point": start_point,
         "seed": seed
@@ -142,13 +159,13 @@ if __name__ == "__main__":
     with open(save_results_path / f"bo_metrics_{timestamp}.json", "w") as f:
         json.dump(bo_metrics, f, indent=2)
 
-    # Save EI values (convert tensors to lists)
+    # Save EI values (convert tensors and numpy types to JSON-serializable lists)
     ei_values_list = []
     for ei_tensor in results["ei_values"]:
         if torch.is_tensor(ei_tensor):
             ei_values_list.append(ei_tensor.cpu().numpy().tolist())
         else:
-            ei_values_list.append(ei_tensor)
+            ei_values_list.append(convert_to_json_serializable(ei_tensor))
             
     with open(save_results_path / f"ei_values_{timestamp}.json", "w") as f:
         json.dump(ei_values_list, f, indent=2)
