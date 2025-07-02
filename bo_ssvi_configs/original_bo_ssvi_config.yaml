@@ -1,43 +1,104 @@
+# Configuration for LVMOGP Bayesian Optimization Pipeline
+# Replicates the exact experimental setup from the useful_notebook
+
 gp_ssvi:
-  device: cuda
+  # Device settings
+  device: cuda  # Use 'cpu' if no GPU available
   debug: false
 
+  # Learning rates
   lr:
-    x: 1e-3
-    hyp: 1e-3
-    alpha: 5e-3
+    x: 1e-3      # Learning rate for latent variables H
+    hyp: 1e-3    # Learning rate for hyperparameters
+    alpha: 5e-3  # Learning rate for length scales
 
+  # Training settings
   training:
     batch_size: 128
-    total_iters: 5
+    total_iters: 1000    # Increased for real training (was 5 for testing)
     inner_iters:
-      start: 40
-      after: 30
-      switch: 50
+      start: 40          # Inner iterations for first epochs
+      after: 30          # Inner iterations after switch
+      switch: 50         # When to switch inner iteration count
 
+  # Latent variable initialization
   init_latent_dist:
-    method: default
+    method: default      # Use default random initialization
     custom_path: ""
 
+  # Inducing points settings
   inducing:
-    n_inducing: 64
-    selection: perm
-    seed: 19
+    n_inducing: 64       # Number of inducing points
+    selection: perm      # Random permutation selection
+    seed: 19             # Seed for inducing point initialization
 
+  # Numerical stability
   jitter: 5e-6
   max_exp: 60.0
 
+  # SVI step size schedule
   rho:
-    t0: 100.0
-    k: 0.6
+    t0: 100.0           # Initial step size parameter
+    k: 0.6              # Decay rate
 
-  q_latent: 12
-  init_signal_to_noise_ratio: 1.0
-  num_u_samples_per_iter: 2
+  # Model architecture
+  q_latent: 12                    # Latent dimension (matches notebook)
+  init_signal_to_noise_ratio: 1.0 # Initial signal-to-noise ratio
+  num_u_samples_per_iter: 2       # Number of U samples per iteration
 
+# Bayesian Optimization settings
 bo:
-  bo_steps: 3
-  seed: 0
-  pct_train: 50
-  test_name: many_r
-  start_point: centre
+  bo_steps: 15          # Number of BO iterations (increased for meaningful results)
+  seed: 0               # Random seed for reproducibility
+  pct_train: 50         # Percentage of data in training (not used in current setup but kept for compatibility)
+  
+  # Experimental setup (matches notebook exactly)
+  test_name: many_r     # Options: "many_r" or "one_from_many_{surface}_r"
+                        # Examples of one_from_many:
+                        # - "one_from_many_FP004-RP004-Probe_r"
+                        # - "one_from_many_FP001-RP001x-EvaGreen_r"
+                        # - "one_from_many_FP002-RP002x-EvaGreen_r"
+                        # etc.
+  
+  start_point: centre   # Options: "centre" or "0_point_start"
+
+# Additional experimental configurations for batch runs
+# (These can be used to run multiple experiments programmatically)
+experimental:
+  # Seeds to run (notebook uses 0-24, reduced here for manageable runs)
+  seeds: [0, 1, 2, 5, 10]
+  
+  # Test scenarios from the notebook
+  test_scenarios:
+    - many_r
+    - one_from_many_FP004-RP004-Probe_r
+    - one_from_many_FP001-RP001x-EvaGreen_r
+    - one_from_many_FP002-RP002x-EvaGreen_r
+    - one_from_many_FP001-RP001x-Probe_r
+    - one_from_many_FP005-FP001-Probe_r
+    - one_from_many_RP001x-FP002-Probe_r
+    - one_from_many_RP002x-FP005-Probe_r
+    - one_from_many_FP005-FP004-EvaGreen_r
+    - one_from_many_RP002x-FP002-EvaGreen_r
+    - one_from_many_FP001-RP004-EvaGreen_r
+    - one_from_many_FP002-RP004-EvaGreen_r
+    - one_from_many_FP004-FP005-Probe_r
+    - one_from_many_RP008x-FP005-Probe_r
+    - one_from_many_FP005-FP001-EvaGreen_r
+  
+  # Start point strategies
+  start_points: [centre, 0_point_start]
+
+# Performance and resource settings
+performance:
+  # Memory management
+  gradient_checkpointing: false
+  
+  # Convergence monitoring
+  monitor_convergence: true
+  convergence_tolerance: 1e-6
+  early_stopping_patience: 50
+  
+  # Logging
+  log_frequency: 10     # Log every N iterations
+  save_intermediate: false  # Save model state during training

@@ -1,0 +1,63 @@
+# Configuration for "One Surface Learning" Experiment  
+# This replicates the "one_from_many_X_r" experiments from the notebook where
+# all surfaces except one are in the training set, and we learn one surface
+# by adding one data point per iteration
+
+gp_ssvi:
+  device: cuda
+  debug: false
+
+  lr:
+    x: 1e-3
+    hyp: 1e-3
+    alpha: 5e-3
+
+  training:
+    batch_size: 128
+    total_iters: 1000
+    inner_iters:
+      start: 40
+      after: 30
+      switch: 50
+
+  init_latent_dist:
+    method: default
+    custom_path: ""
+
+  inducing:
+    n_inducing: 64
+    selection: perm
+    seed: 19
+
+  jitter: 5e-6
+  max_exp: 60.0
+
+  rho:
+    t0: 100.0
+    k: 0.6
+
+  q_latent: 12
+  init_signal_to_noise_ratio: 1.0
+  num_u_samples_per_iter: 2
+
+bo:
+  bo_steps: 15           # Fewer steps since focusing on one surface
+  seed: 0
+  pct_train: 50
+  test_name: one_from_many_FP004-RP004-Probe_r  # Learn specific surface
+  start_point: centre    # Use centre starting points
+  
+# Note: To run different surfaces, change test_name to:
+# - one_from_many_FP001-RP001x-EvaGreen_r
+# - one_from_many_FP002-RP002x-EvaGreen_r  
+# - one_from_many_FP001-RP001x-Probe_r
+# - one_from_many_FP005-FP001-Probe_r
+# - one_from_many_RP001x-FP002-Probe_r
+# - one_from_many_RP002x-FP005-Probe_r
+# - one_from_many_FP005-FP004-EvaGreen_r
+# - one_from_many_RP002x-FP002-EvaGreen_r
+# - one_from_many_FP001-RP004-EvaGreen_r
+# - one_from_many_FP002-RP004-EvaGreen_r
+# - one_from_many_FP004-FP005-Probe_r
+# - one_from_many_RP008x-FP005-Probe_r
+# - one_from_many_FP005-FP001-EvaGreen_r 

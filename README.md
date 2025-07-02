@@ -51,7 +51,22 @@ bash jobs/run_gp_lvm_gpytorch_configs_in_the_folder.sh gp_gpytorch_configs
 These scripts iterate over all YAML files in the given folder and run each experiment sequentially.
 
 
-### 5. 🔧 Custom Initialization of Latent Space (optional)
+### 5. 🧬 Run Biological Experiments (PCR Data)
+
+For **Bayesian Optimization** and **Cross Validation** experiments with PCR/biological data:
+
+```bash
+# Bayesian optimization experiments
+python run_bo_gp_lvm_ssvi.py --config bo_ssvi_configs/original_bo_ssvi_config.yaml
+
+# Cross validation experiments  
+python run_cv_gp_lvm_ssvi.py --config cv_ssvi_configs/original_cv_ssvi_config.yaml
+```
+
+See **[LVMOGP_SSVI_BIOEXP_README.md](LVMOGP_SSVI_BIOEXP_README.md)** for complete biological experiments documentation.
+
+
+### 6. 🔧 Custom Initialization of Latent Space (optional)
 
 By default, latent variables `mu_x` and `log_s2x` are initialized via **PCA**.
 

@@ -1,0 +1,46 @@
+# Quick Test Configuration
+# Use this for testing/debugging with minimal computational requirements
+
+gp_ssvi:
+  device: cpu           # Use CPU for quick testing
+  debug: true           # Enable debug mode
+
+  lr:
+    x: 1e-3
+    hyp: 1e-3
+    alpha: 5e-3
+
+  training:
+    batch_size: 64      # Smaller batch size
+    total_iters: 50     # Much fewer iterations for quick testing
+    inner_iters:
+      start: 10         # Reduced inner iterations
+      after: 10
+      switch: 20
+
+  init_latent_dist:
+    method: default
+    custom_path: ""
+
+  inducing:
+    n_inducing: 32      # Fewer inducing points for speed
+    selection: perm
+    seed: 19
+
+  jitter: 5e-6
+  max_exp: 60.0
+
+  rho:
+    t0: 100.0
+    k: 0.6
+
+  q_latent: 6           # Smaller latent dimension for speed
+  init_signal_to_noise_ratio: 1.0
+  num_u_samples_per_iter: 1  # Fewer samples for speed
+
+bo:
+  bo_steps: 3           # Just a few BO steps for quick testing
+  seed: 0
+  pct_train: 50
+  test_name: many_r     # Test with many surfaces
+  start_point: centre 

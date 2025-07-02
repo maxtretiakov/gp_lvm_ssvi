@@ -108,12 +108,14 @@ def bayesian_optimization_loop(train_df, test_df, targets, config,
     nlpd_values = []
     rmse_values = []
     regret_values = []
+    pred_mean_history = []  # For notebook compatibility
+    pred_var_history = []   # For notebook compatibility
     
     print(f"Starting BO with {len(train_df)} training points and {len(test_df)} test points")
     print(f"Test type: {test_name}, Start point: {start_point}")
     
     for k in range(K_steps):
-        print(f"\n=== BO Step {k + 1}/{K_steps} ===")
+        print(f"\nBO Step {k + 1}/{K_steps}")
         print(f"Current training set size: {len(data_dict['Y_train'])}")
         
         # Create and train LVMOGP model
@@ -137,6 +139,10 @@ def bayesian_optimization_loop(train_df, test_df, targets, config,
         pred_mean, pred_var = model.predict_y((data_dict['X_test'], data_dict['fn_test']))
         pred_mean = pred_mean.squeeze(-1).detach().cpu().numpy()  # (N_test,)
         pred_var = pred_var.squeeze(-1).detach().cpu().numpy()   # (N_test,)
+        
+        # Store predictions for notebook compatibility
+        pred_mean_history.append(pred_mean.copy())
+        pred_var_history.append(pred_var.copy())
         
         # Determine which surfaces to optimize based on test_name
         if test_name == "many_r":
@@ -269,5 +275,7 @@ def bayesian_optimization_loop(train_df, test_df, targets, config,
         "nlpd_values": nlpd_values,
         "rmse_values": rmse_values,
         "regret_values": regret_values,
-        "surfaces_optimized": surfaces_to_optimize
+        "surfaces_optimized": surfaces_to_optimize,
+        "pred_mean_history": pred_mean_history,
+        "pred_var_history": pred_var_history
     }
