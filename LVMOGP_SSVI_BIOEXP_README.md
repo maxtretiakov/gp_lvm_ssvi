@@ -219,10 +219,8 @@ combined_cv = convert_cv_results_to_notebook_format(
 ## Troubleshooting
 
 ### Common Issues
-1. **CUDA out of memory**: Reduce `batch_size`, `n_inducing`, or use `device: cpu`
-2. **Long training time**: Reduce `total_iters` or `bo_steps` for testing
-3. **Missing data files**: Ensure `data/data.csv` and targets CSV exist
-4. **Surface not found**: Check surface names match exactly (case-sensitive)
+1. **Missing data files**: Ensure `data/data.csv` and targets CSV exist
+2. **Surface not found**: Check surface names match exactly (case-sensitive)
 
 ### Debug Mode
 ```yaml
