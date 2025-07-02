@@ -1,0 +1,54 @@
+# Cross Validation Configuration for LVMOGP-SSVI
+# Replicates the notebook's CV experimental setup
+
+gp_ssvi:
+  # Core LVMOGP parameters
+  q_latent: 12               # Latent dimension (matches notebook)
+  q_data: 2                  # Data dimension (BP, GC)
+  
+  # Device and performance
+  device: cuda               # Use GPU (change to 'cpu' if needed)
+  debug: false
+  
+  # Inducing points
+  inducing:
+    n_inducing: 64           # Number of inducing points
+    
+  # Training parameters for SSVI  
+  training:
+    total_iters: 1000        # SSVI training iterations
+    batch_size: 500          # Batch size for training
+    learning_rate: 0.01      # Learning rate
+    lr_schedule: "exponential"
+    lr_decay_rate: 0.96
+    lr_decay_steps: 100
+    print_interval: 100      # How often to print progress
+    
+  # Model-specific parameters
+  kernel_variance: 1.0       # Initial kernel variance
+  noise_variance: 0.1        # Initial noise variance
+  
+# Cross Validation specific parameters
+cv:
+  # Seeds to run (notebook mentions 201 seeds: 0-200, but we'll use subset for speed)
+  seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]  # First 10 seeds for testing
+  
+  # Training percentages (matching notebook experimental design)
+  train_percentages: [10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95]
+  
+  # Optional: subset for quick testing
+  quick_test:
+    seeds: [0, 1]
+    train_percentages: [20, 50, 80]
+
+# Experimental metadata
+experimental:
+  description: "Cross validation of LVMOGP-SSVI across different training set sizes"
+  notebook_reference: "useful_notebook.ipynb Cell 25"
+  baseline_comparison: "results/cross_validation.csv"
+  
+  # Expected output format matches notebook:
+  # Columns: ['no test points', 'no train points', 'lvm_ssvi_test_RMSE', 'lvm_ssvi_test_NLPD', 
+  #           'lvm_ssvi_test_RMSE_z', 'lvm_ssvi_test_NLPD_z', 'lvm_ssvi_train_RMSE', 
+  #           'lvm_ssvi_train_NLPD', 'lvm_ssvi_train_RMSE_z', 'lvm_ssvi_train_NLPD_z', 
+  #           'seed', 'pct_train', 'param'] 

@@ -1,0 +1,48 @@
+# Quick Test Cross Validation Configuration for LVMOGP-SSVI
+# Minimal parameters for testing the CV pipeline
+
+gp_ssvi:
+  # Core LVMOGP parameters
+  q_latent: 4                # Reduced latent dimension for speed
+  q_data: 2                  # Data dimension (BP, GC)
+  
+  # Device and performance
+  device: cpu                # Use CPU for quick testing
+  debug: false
+  
+  # Inducing points
+  inducing:
+    n_inducing: 16           # Reduced for speed
+    
+  # Training parameters for SSVI  
+  training:
+    total_iters: 50          # Much fewer iterations for testing
+    batch_size: 100          # Smaller batch size
+    learning_rate: 0.01      # Learning rate
+    lr_schedule: "exponential"
+    lr_decay_rate: 0.96
+    lr_decay_steps: 20
+    print_interval: 20       # Print more frequently
+    
+  # Model-specific parameters
+  kernel_variance: 1.0       # Initial kernel variance
+  noise_variance: 0.1        # Initial noise variance
+  
+# Cross Validation specific parameters
+cv:
+  # Minimal seeds for quick testing
+  seeds: [0, 1]
+  
+  # Just a few training percentages for quick test
+  train_percentages: [30, 60, 90]
+
+# Experimental metadata
+experimental:
+  description: "Quick test of cross validation pipeline"
+  purpose: "Verify CV implementation before full run"
+  
+  # Note: Output will have columns:
+  # ['no test points', 'no train points', 'lvm_ssvi_test_RMSE', 'lvm_ssvi_test_NLPD', 
+  #  'lvm_ssvi_test_RMSE_z', 'lvm_ssvi_test_NLPD_z', 'lvm_ssvi_train_RMSE', 
+  #  'lvm_ssvi_train_NLPD', 'lvm_ssvi_train_RMSE_z', 'lvm_ssvi_train_NLPD_z', 
+  #  'seed', 'pct_train', 'param'] 
