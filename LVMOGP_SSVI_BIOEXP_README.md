@@ -1,6 +1,6 @@
-# LVMOGP Model Evaluation Pipeline
+# LVMOGP-SSVI Biological Experiments Pipeline
 
-This directory contains complete evaluation pipelines that **exactly replicate** the experimental setup from the `useful_notebook.ipynb`. The only difference is that we use the LVMOGP-SSVI model instead of the baseline models.
+This pipeline contains complete evaluation experiments that **exactly replicate** the experimental setup from the `useful_notebook.ipynb` for biological (PCR) data. The pipeline implements the LVMOGP-SSVI model and compares it against baseline models (MOGP, LMC, AvgGP, original LVMOGP).
 
 ## Overview
 
