@@ -189,19 +189,17 @@ def run_cross_validation(config_path, output_file="cross_validation_results.csv"
     Run cross validation across multiple seeds and training percentages.
     """
     
-    # Load config - use simpler approach since CV config structure is different
+    # Load config using proper GPSSVIConfig structure (same as BO script)
     import yaml
     with open(config_path, 'r') as f:
         cfg = yaml.safe_load(f)
     
-    gp_cfg_dict = cfg['gp_ssvi']
-    cv_cfg_dict = cfg['cv']
+    # Create proper GPSSVIConfig from the gp_ssvi section
+    from src.bayesian_optimization.config_helper import _to_dataclass
+    from src.gp_dataclasses import GPSSVIConfig
     
-    # Convert to object for attribute access
-    from types import SimpleNamespace
-    gp_cfg = SimpleNamespace(**gp_cfg_dict)
-    gp_cfg.inducing = SimpleNamespace(**gp_cfg_dict['inducing'])
-    gp_cfg.training = SimpleNamespace(**gp_cfg_dict['training'])
+    gp_cfg = _to_dataclass(GPSSVIConfig, cfg['gp_ssvi'])
+    cv_cfg_dict = cfg['cv']
     
     work_dir = Path.cwd()
     device = torch.device(gp_cfg.device)

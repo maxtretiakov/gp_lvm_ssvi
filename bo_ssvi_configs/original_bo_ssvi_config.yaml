@@ -6,6 +6,13 @@ gp_ssvi:
   device: cuda  # Use 'cpu' if no GPU available
   debug: false
 
+  # Dataset configuration (required field)
+  dataset:
+    type: oil           # Using oil dataset for biological experiments
+    n_samples: 1000     # Not used for real data but required field
+    noise: 0.1          # Not used for real data but required field
+    random_state: null  # Not used for real data
+
   # Learning rates
   lr:
     x: 1e-3      # Learning rate for latent variables H
