@@ -1,0 +1,46 @@
+{
+  "final_train_size": 293,
+  "chosen_indices": [
+    78,
+    94,
+    92
+  ],
+  "nlpd_values": [
+    0.12679916712754397,
+    0.2564008990723642,
+    0.7734084043340952
+  ],
+  "rmse_values": [
+    0.22977919265033236,
+    0.24544706185070841,
+    0.3072007240332075
+  ],
+  "regret_values": [
+    0.11620187415237278,
+    0.11620187415237278,
+    0.11620187415237278
+  ],
+  "surfaces_optimized": [
+    "FP004-RP004-Probe",
+    "FP004-RP004-EvaGreen",
+    "FP001-RP001x-EvaGreen",
+    "FP002-RP002x-Probe",
+    "FP002-RP002x-EvaGreen",
+    "FP001-RP001x-Probe",
+    "RP001x-FP002-Probe",
+    "RP002x-FP002-EvaGreen",
+    "FP001-RP004-EvaGreen",
+    "FP002-RP004-EvaGreen",
+    "RP008x-FP005-Probe",
+    "RP002x-FP004-EvaGreen",
+    "RP008x-FP001-EvaGreen",
+    "FP005-FP001-Probe",
+    "FP005-FP004-EvaGreen",
+    "RP002x-FP005-Probe",
+    "FP004-FP005-Probe",
+    "FP005-FP001-EvaGreen"
+  ],
+  "test_name": "many_r",
+  "start_point": "centre",
+  "seed": 0
+}

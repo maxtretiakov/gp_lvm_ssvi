@@ -1,0 +1,51 @@
+{
+  "gp_ssvi": {
+    "device": "cpu",
+    "debug": true,
+    "jitter": 5e-06,
+    "max_exp": 60.0,
+    "q_latent": 6,
+    "init_signal_to_noise_ratio": 1.0,
+    "num_u_samples_per_iter": 1,
+    "lr": {
+      "x": 0.001,
+      "hyp": 0.001,
+      "alpha": 0.005
+    },
+    "rho": {
+      "t0": 100.0,
+      "k": 0.6
+    },
+    "training": {
+      "batch_size": 64,
+      "total_iters": 50,
+      "inner_iters": {
+        "start": 10,
+        "after": 10,
+        "switch": 20
+      }
+    },
+    "inducing": {
+      "n_inducing": 32,
+      "selection": "perm",
+      "seed": 19
+    },
+    "init_latent_dist": {
+      "method": "default",
+      "custom_path": ""
+    },
+    "dataset": {
+      "type": "oil",
+      "n_samples": 1000,
+      "noise": 0.1,
+      "random_state": null
+    }
+  },
+  "bo": {
+    "bo_steps": 3,
+    "seed": 0,
+    "pct_train": 50,
+    "test_name": "many_r",
+    "start_point": "centre"
+  }
+}
