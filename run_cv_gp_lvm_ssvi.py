@@ -23,6 +23,22 @@ from src.bayesian_optimization.metrics_helper import get_nlpd, get_squared_error
 from src.lvmogp.lvmogp_ssvi import LVMOGP_SSVI_Torch
 
 
+def convert_to_json_serializable(obj):
+    """Convert numpy types to JSON-serializable Python types."""
+    if isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, list):
+        return [convert_to_json_serializable(item) for item in obj]
+    elif isinstance(obj, dict):
+        return {key: convert_to_json_serializable(value) for key, value in obj.items()}
+    else:
+        return obj
+
+
 def prepare_cv_data(train_df, test_df, Q=12, device=None):
     """
     Prepare data for LVMOGP cross validation (simpler than BO - no targets needed).
@@ -165,7 +181,7 @@ def run_single_cv_fold(train_df, test_df, config, device):
     test_rmse_z = test_rmse / global_std  
     test_nlpd_z = test_nlpd_mean
     
-    metrics = {
+    metrics = convert_to_json_serializable({
         'train_RMSE': train_rmse,
         'train_NLPD': train_nlpd_mean,
         'train_RMSE_z': train_rmse_z,
@@ -176,7 +192,7 @@ def run_single_cv_fold(train_df, test_df, config, device):
         'test_NLPD_z': test_nlpd_z,
         'n_train': len(train_df),
         'n_test': len(test_df)
-    }
+    })
     
     print(f"CV Metrics - Train RMSE: {train_rmse:.4f}, Test RMSE: {test_rmse:.4f}")
     print(f"             Train NLPD: {train_nlpd_mean:.4f}, Test NLPD: {test_nlpd_mean:.4f}")
@@ -191,6 +207,10 @@ def run_cross_validation(config_path, output_file="cross_validation_results.csv"
     
     # Load config using proper GPSSVIConfig structure (same as BO script)
     import yaml
+    import datetime
+    import json
+    import dataclasses
+    
     with open(config_path, 'r') as f:
         cfg = yaml.safe_load(f)
     
@@ -201,7 +221,25 @@ def run_cross_validation(config_path, output_file="cross_validation_results.csv"
     gp_cfg = _to_dataclass(GPSSVIConfig, cfg['gp_ssvi'])
     cv_cfg_dict = cfg['cv']
     
+    # Create results folder structure like BO script
     work_dir = Path.cwd()
+    RESULTS_ROOT = work_dir / "gp_lvm_cv_run_results"
+    config_name = Path(config_path).stem
+    timestamp = datetime.datetime.now().strftime("%m_%d_%H_%M")
+    save_results_path = RESULTS_ROOT / f"cv_results_{config_name}_{timestamp}"
+    save_results_path.mkdir(parents=True, exist_ok=True)
+    
+    print(f"Results will be saved to: {save_results_path}")
+    
+    # Save config used (like BO script)
+    # Convert NamedNamespace back to dict for JSON serialization
+    cfg_for_json = {
+        'gp_ssvi': dataclasses.asdict(gp_cfg),
+        'cv': cv_cfg_dict
+    }
+    with open(save_results_path / f"config_used_{timestamp}.json", "w") as f:
+        json.dump(cfg_for_json, f, indent=2)
+    
     device = torch.device(gp_cfg.device)
     
     # Load full data
@@ -281,18 +319,43 @@ def run_cross_validation(config_path, output_file="cross_validation_results.csv"
     results_df = pd.DataFrame(all_results)
     
     if len(results_df) > 0:
-        # Save results
-        output_path = work_dir / output_file
-        results_df.to_csv(output_path, index=True)
+        # Save main CV results in the timestamped folder
+        main_output_path = save_results_path / f"cv_results_{timestamp}.csv"
+        results_df.to_csv(main_output_path, index=True)
+        
+        # Also save summary statistics
+        summary_stats = convert_to_json_serializable({
+            'total_folds_completed': len(results_df),
+            'test_RMSE_mean': float(results_df['lvm_ssvi_test_RMSE'].mean()),
+            'test_RMSE_std': float(results_df['lvm_ssvi_test_RMSE'].std()),
+            'test_NLPD_mean': float(results_df['lvm_ssvi_test_NLPD'].mean()),
+            'test_NLPD_std': float(results_df['lvm_ssvi_test_NLPD'].std()),
+            'train_RMSE_mean': float(results_df['lvm_ssvi_train_RMSE'].mean()),
+            'train_RMSE_std': float(results_df['lvm_ssvi_train_RMSE'].std()),
+            'train_NLPD_mean': float(results_df['lvm_ssvi_train_NLPD'].mean()),
+            'train_NLPD_std': float(results_df['lvm_ssvi_train_NLPD'].std()),
+            'seeds_tested': sorted(list(set(results_df['seed']))),
+            'train_percentages_tested': sorted(list(set(results_df['pct_train'])))
+        })
+        
+        with open(save_results_path / f"cv_summary_{timestamp}.json", "w") as f:
+            json.dump(summary_stats, f, indent=2)
+        
+        # Also save compatible output file if requested (for backward compatibility)
+        if output_file != "cross_validation_results.csv":
+            compat_output_path = work_dir / output_file
+            results_df.to_csv(compat_output_path, index=True)
+            print(f"Compatible results also saved to: {compat_output_path}")
         
         print(f"\nCross Validation Complete!")
         print(f"Total successful folds: {len(results_df)}")
-        print(f"Results saved to: {output_path}")
+        print(f"Main results saved to: {main_output_path}")
+        print(f"Summary statistics saved to: {save_results_path / f'cv_summary_{timestamp}.json'}")
         
         # Print summary statistics
         print(f"\nSummary Statistics:")
-        print(f"Test RMSE: {results_df['lvm_ssvi_test_RMSE'].mean():.4f} ± {results_df['lvm_ssvi_test_RMSE'].std():.4f}")
-        print(f"Test NLPD: {results_df['lvm_ssvi_test_NLPD'].mean():.4f} ± {results_df['lvm_ssvi_test_NLPD'].std():.4f}")
+        print(f"Test RMSE: {summary_stats['test_RMSE_mean']:.4f} ± {summary_stats['test_RMSE_std']:.4f}")
+        print(f"Test NLPD: {summary_stats['test_NLPD_mean']:.4f} ± {summary_stats['test_NLPD_std']:.4f}")
         
         return results_df
     else:
