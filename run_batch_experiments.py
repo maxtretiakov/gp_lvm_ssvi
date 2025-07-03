@@ -173,16 +173,30 @@ if __name__ == "__main__":
     
     results = run_batch_experiments(args.config_base, args.quick_test)
     
-    # Save results summary
+    # Save results summary in proper results folder structure
     timestamp = datetime.datetime.now().strftime("%m_%d_%H_%M")
-    results_file = Path(f"batch_results_{timestamp}.yaml")
     
+    # Create results folder structure like other scripts
+    work_dir = Path.cwd()
+    RESULTS_ROOT = work_dir / "gp_lvm_batch_run_results"
+    config_name = args.config_base.stem
+    save_results_path = RESULTS_ROOT / f"batch_results_{config_name}_{timestamp}"
+    save_results_path.mkdir(parents=True, exist_ok=True)
+    
+    # Save batch summary
+    batch_summary = {
+        'timestamp': timestamp,
+        'base_config': str(args.config_base),
+        'quick_test': args.quick_test,
+        'total_experiments': len(results),
+        'successful_experiments': sum(1 for r in results if r['success']),
+        'failed_experiments': sum(1 for r in results if not r['success']),
+        'success_rate': sum(1 for r in results if r['success']) / len(results) * 100 if results else 0,
+        'results': results
+    }
+    
+    results_file = save_results_path / f"batch_summary_{timestamp}.yaml"
     with open(results_file, 'w') as f:
-        yaml.dump({
-            'timestamp': timestamp,
-            'base_config': str(args.config_base),
-            'quick_test': args.quick_test,
-            'results': results
-        }, f, default_flow_style=False, indent=2)
+        yaml.dump(batch_summary, f, default_flow_style=False, indent=2)
     
-    print(f"\nResults summary saved to: {results_file}") 
+    print(f"\nBatch results summary saved to: {results_file}") 
