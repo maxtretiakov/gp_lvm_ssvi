@@ -21,7 +21,7 @@ import torch
 import numpy as np
 
 
-from src.lvmogp.gp_lvm_ssvi_core import train_lvmogp_ssvi
+from src.lvmogp.lvmogp_ssvi_core import train_lvmogp_ssvi
 from src.gp_dataclasses    import GPSSVIConfig
 
 # global settings & tiny helpers
