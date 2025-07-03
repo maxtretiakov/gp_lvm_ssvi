@@ -200,7 +200,7 @@ def run_single_cv_fold(train_df, test_df, config, device):
     return metrics
 
 
-def run_cross_validation(config_path, output_file="cross_validation_results.csv"):
+def run_cross_validation(config_path):
     """
     Run cross validation across multiple seeds and training percentages.
     """
@@ -341,12 +341,6 @@ def run_cross_validation(config_path, output_file="cross_validation_results.csv"
         with open(save_results_path / f"cv_summary_{timestamp}.json", "w") as f:
             json.dump(summary_stats, f, indent=2)
         
-        # Also save compatible output file if requested (for backward compatibility)
-        if output_file != "cross_validation_results.csv":
-            compat_output_path = work_dir / output_file
-            results_df.to_csv(compat_output_path, index=True)
-            print(f"Compatible results also saved to: {compat_output_path}")
-        
         print(f"\nCross Validation Complete!")
         print(f"Total successful folds: {len(results_df)}")
         print(f"Main results saved to: {main_output_path}")
@@ -367,8 +361,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=Path, required=True, 
                        help="YAML config with gp_ssvi + cv sections")
-    parser.add_argument("--output", type=str, default="cross_validation_lvmogp_ssvi.csv",
-                       help="Output CSV filename")
     
     args = parser.parse_args()
     
@@ -376,4 +368,4 @@ if __name__ == "__main__":
         print(f"ERROR: Config file not found: {args.config}")
         exit(1)
     
-    run_cross_validation(args.config, args.output) 
+    run_cross_validation(args.config) 
