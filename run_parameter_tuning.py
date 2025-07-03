@@ -28,7 +28,7 @@ def save_config(config, config_path):
         yaml.dump(config, f, default_flow_style=False, indent=2)
 
 def run_single_parameter_test(config_path, experiment_name, exp_type='bo'):
-    """Run a single parameter test and return success status."""
+    """Run a single parameter test with real-time output streaming."""
     print(f"\n{'='*60}")
     print(f"Testing: {experiment_name}")
     print(f"Config: {config_path}")
@@ -38,30 +38,42 @@ def run_single_parameter_test(config_path, experiment_name, exp_type='bo'):
     try:
         if exp_type == 'bo':
             # Use batch experiments for BO (multiple seeds/scenarios automatically)
-            result = subprocess.run([
-                "python", "run_batch_experiments.py", 
-                "--config_base", str(config_path)
-            ], capture_output=True, text=True, timeout=3600)  # 1 hour timeout
+            cmd = ["python", "run_batch_experiments.py", "--config_base", str(config_path)]
         else:  # cv
             # Use CV script directly
-            result = subprocess.run([
-                "python", "run_cv_gp_lvm_ssvi.py", 
-                "--config", str(config_path)
-            ], capture_output=True, text=True, timeout=3600)  # 1 hour timeout
+            cmd = ["python", "run_cv_gp_lvm_ssvi.py", "--config", str(config_path)]
         
-        if result.returncode == 0:
-            print(f"SUCCESS: {experiment_name}")
+        # Use Popen for real-time streaming
+        process = subprocess.Popen(
+            cmd, 
+            stdout=subprocess.PIPE, 
+            stderr=subprocess.STDOUT,
+            text=True, 
+            bufsize=1, 
+            universal_newlines=True
+        )
+        
+        # Stream output in real-time
+        if process.stdout is not None:
+            while True:
+                output = process.stdout.readline()
+                if output == '' and process.poll() is not None:
+                    break
+                if output:
+                    print(output, end='')  # Print to console in real-time
+        
+        # Wait for process to complete (no timeout)
+        return_code = process.wait()
+        
+        if return_code == 0:
+            print(f"\nSUCCESS: {experiment_name}")
             return True
         else:
-            print(f"FAILED: {experiment_name}")
-            print(f"Error output: {result.stderr}")
+            print(f"\nFAILED: {experiment_name} (return code: {return_code})")
             return False
             
-    except subprocess.TimeoutExpired:
-        print(f"TIMEOUT: {experiment_name} (exceeded 1 hour)")
-        return False
     except Exception as e:
-        print(f"EXCEPTION: {experiment_name} - {e}")
+        print(f"\nEXCEPTION: {experiment_name} - {e}")
         return False
 
 def run_bo_parameter_tuning(quick_test=False):
