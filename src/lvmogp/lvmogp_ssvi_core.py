@@ -250,7 +250,7 @@ def train_lvmogp_ssvi(config: GPSSVIConfig, Y: torch.Tensor, X_data: torch.Tenso
                     - 0.5 * quad).sum(-1)  # (B,)
         
         # KL for H only (not for X which is observed)
-        kl_H_batch = compute_kl_H(H_mean[X_data_fn[idx]], H_log_s2[X_data_fn[idx]]) / N  # scale by total N
+        kl_H_batch = compute_kl_H(H_mean[X_data_fn[idx]], H_log_s2[X_data_fn[idx]]) / len(idx)  # average over batch
         
         ll_mean  = log_like.mean()       
         klH_mean = kl_H_batch
