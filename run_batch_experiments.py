@@ -26,7 +26,7 @@ def save_config(config, config_path):
     with open(config_path, 'w') as f:
         yaml.dump(config, f, default_flow_style=False, indent=2)
 
-def run_single_experiment(config_path, experiment_name, log_dir):
+def run_single_experiment(config_path, experiment_name, log_dir, exp_config):
     """Run a single experiment with real-time output streaming and log saving."""
     print(f"\n{'='*60}")
     print(f"Running: {experiment_name}")
@@ -40,10 +40,18 @@ def run_single_experiment(config_path, experiment_name, log_dir):
     try:
         # Use Popen for real-time streaming with logging
         with open(log_file, 'w', encoding='utf-8') as log_f:
-            # Write header to log file
+            # Write comprehensive header to log file
             log_f.write(f"Experiment: {experiment_name}\n")
-            log_f.write(f"Config: {config_path}\n")
             log_f.write(f"Start time: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            log_f.write("="*60 + "\n")
+            log_f.write("EXPERIMENT CONFIGURATION:\n")
+            log_f.write("="*60 + "\n")
+            
+            # Save the complete configuration used for this experiment
+            yaml.dump(exp_config, log_f, default_flow_style=False, indent=2)
+            
+            log_f.write("\n" + "="*60 + "\n")
+            log_f.write("EXPERIMENT OUTPUT:\n")
             log_f.write("="*60 + "\n\n")
             log_f.flush()
             
@@ -157,7 +165,7 @@ def run_batch_experiments(base_config_path, quick_test=False):
                 save_config(exp_config, temp_config_path)
                 
                 # Run experiment
-                success = run_single_experiment(temp_config_path, experiment_name, log_dir)
+                success = run_single_experiment(temp_config_path, experiment_name, log_dir, exp_config)
                 results.append({
                     'experiment': experiment_name,
                     'seed': seed,
