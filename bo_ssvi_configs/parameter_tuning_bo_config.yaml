@@ -1,0 +1,106 @@
+# Parameter Tuning Configuration for LVMOGP-SSVI
+# Representative subset of experiments for comparing with original bio results
+# Use this for parameter optimization before full runs
+
+gp_ssvi:
+  # Device settings  
+  device: cuda               # Use GPU for faster training (change to 'cpu' if needed)
+  debug: false
+
+  # Dataset configuration (required field)
+  dataset:
+    type: oil               # Using oil dataset for biological experiments
+    n_samples: 1000         # Not used for real data but required field
+    noise: 0.1              # Not used for real data but required field
+    random_state: null      # Not used for real data
+
+  # Learning rates - THESE ARE THE KEY PARAMETERS TO TUNE
+  lr:
+    x: 1e-3                 # Learning rate for latent variables H - tune this
+    hyp: 1e-3               # Learning rate for hyperparameters - tune this  
+    alpha: 5e-3             # Learning rate for length scales - tune this
+
+  # Training settings - TUNE THESE FOR PERFORMANCE/ACCURACY TRADEOFF
+  training:
+    batch_size: 128         # Batch size for training
+    total_iters: 800        # SSVI training iterations - balance speed vs accuracy
+    inner_iters:
+      start: 35             # Inner iterations for first epochs - tune these
+      after: 25             # Inner iterations after switch - tune these
+      switch: 40            # When to switch inner iteration count
+
+  # Latent variable initialization
+  init_latent_dist:
+    method: default         # Use default random initialization
+    custom_path: ""
+
+  # Inducing points settings - TUNE FOR MEMORY/PERFORMANCE
+  inducing:
+    n_inducing: 64          # Number of inducing points - tune this (32, 64, 128)
+    selection: perm         # Random permutation selection
+    seed: 19                # Seed for inducing point initialization
+
+  # Numerical stability
+  jitter: 5e-6
+  max_exp: 60.0
+
+  # SVI step size schedule - TUNE THESE
+  rho:
+    t0: 100.0              # Initial step size parameter - tune this
+    k: 0.6                 # Decay rate - tune this
+
+  # Model architecture - KEY PARAMETER TO TUNE
+  q_latent: 12                        # Latent dimension - tune this (8, 12, 16)
+  init_signal_to_noise_ratio: 1.0     # Initial signal-to-noise ratio
+  num_u_samples_per_iter: 2           # Number of U samples per iteration
+
+# Bayesian Optimization settings
+bo:
+  bo_steps: 12             # Reduced BO steps for tuning (original uses 15+)
+  seed: 0                  # Random seed for reproducibility
+  pct_train: 50            # Not used but kept for compatibility
+  
+  # These will be overridden by batch script
+  test_name: many_r        
+  start_point: centre      
+
+# Representative experimental subset for parameter tuning
+# This covers the key scenarios from the original paper
+experimental:
+  # Use just 3 seeds for parameter tuning (original uses 0-24)
+  seeds: [0, 1, 2]
+  
+  # Representative test scenarios covering both experimental types
+  test_scenarios:
+    # "Learning Many Surfaces" - the main scenario
+    - many_r
+    
+    # "One Surface Learning" - representative surfaces from different categories
+    - one_from_many_FP004-RP004-Probe_r      # Probe-based surface
+    - one_from_many_FP001-RP001x-EvaGreen_r  # EvaGreen-based surface
+    - one_from_many_FP002-RP002x-EvaGreen_r  # Different EvaGreen surface
+  
+  # Both starting strategies  
+  start_points: [centre, 0_point_start]
+
+# Notes for parameter tuning:
+# 
+# 1. KEY PARAMETERS TO TUNE:
+#    - q_latent: Try [8, 12, 16] - affects model capacity
+#    - n_inducing: Try [32, 64, 128] - affects approximation quality  
+#    - total_iters: Try [500, 800, 1200] - affects training time/quality
+#    - Learning rates (lr.x, lr.hyp, lr.alpha): Try different scales
+#
+# 2. REPRESENTATIVE EXPERIMENTS:
+#    - 3 seeds × 4 test scenarios × 2 start points = 24 experiments
+#    - Covers both "many_r" and "one_from_many" setups
+#    - Results directly comparable with results/*.csv files
+#
+# 3. COMPARISON METRICS:
+#    - NLPD (lower is better)
+#    - RMSE (lower is better) 
+#    - Regret (lower is better)
+#
+# 4. AFTER TUNING:
+#    - Use best parameters in original_bo_ssvi_config.yaml for full runs
+#    - Extend seeds to [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] for more robust evaluation 
