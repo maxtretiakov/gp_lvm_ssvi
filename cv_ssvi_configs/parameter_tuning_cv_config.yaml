@@ -1,0 +1,100 @@
+# Parameter Tuning Cross Validation Configuration for LVMOGP-SSVI
+# Representative subset for comparing with original bio CV results
+# Use this for parameter optimization before full runs
+
+gp_ssvi:
+  # Device settings
+  device: cuda               # Use GPU for faster training (change to 'cpu' if needed)
+  debug: false
+
+  # Dataset configuration (required field)
+  dataset:
+    type: oil               # Using oil dataset for biological experiments
+    n_samples: 1000         # Not used for real data but required field
+    noise: 0.1              # Not used for real data but required field
+    random_state: null      # Not used for real data
+
+  # Learning rates - THESE ARE THE KEY PARAMETERS TO TUNE
+  lr:
+    x: 1e-3                 # Learning rate for latent variables H - tune this
+    hyp: 1e-3               # Learning rate for hyperparameters - tune this  
+    alpha: 5e-3             # Learning rate for length scales - tune this
+
+  # Training settings - TUNE THESE FOR PERFORMANCE/ACCURACY TRADEOFF
+  training:
+    batch_size: 300         # Batch size for training
+    total_iters: 800        # SSVI training iterations - balance speed vs accuracy
+    inner_iters:
+      start: 35             # Inner iterations for first epochs - tune these
+      after: 25             # Inner iterations after switch - tune these
+      switch: 40            # When to switch inner iteration count
+
+  # Latent variable initialization
+  init_latent_dist:
+    method: default         # Use default random initialization
+    custom_path: ""
+
+  # Inducing points settings - TUNE FOR MEMORY/PERFORMANCE
+  inducing:
+    n_inducing: 10          # Number of inducing points per function - matching bio experiments
+    selection: perm         # Random permutation selection
+    seed: 19                # Seed for inducing point initialization
+
+  # Numerical stability
+  jitter: 5e-6
+  max_exp: 60.0
+
+  # SVI step size schedule - TUNE THESE
+  rho:
+    t0: 100.0              # Initial step size parameter - tune this
+    k: 0.6                 # Decay rate - tune this
+
+  # Model architecture - KEY PARAMETER TO TUNE
+  q_latent: 5                         # Latent dimension - matching original bio experiments
+  init_signal_to_noise_ratio: 1.0     # Initial signal-to-noise ratio
+  num_u_samples_per_iter: 5           # Number of U samples per iteration - matching bio experiments
+
+# Cross Validation specific parameters
+cv:
+  # Use subset of seeds for parameter tuning (original mentions 201 seeds: 0-200)
+  seeds: [0, 1, 2, 3, 4]    # 5 seeds for tuning (instead of 200+)
+  
+  # Representative training percentages covering the key ranges
+  train_percentages: [20, 35, 50, 65, 80]   # 5 percentages (instead of full range)
+
+# Notes for CV parameter tuning:
+#
+# 1. REPRESENTATIVE EXPERIMENT SIZE:
+#    - 5 seeds × 5 training percentages = 25 CV experiments
+#    - Much faster than full 200+ seeds × 18 percentages
+#    - Covers low/medium/high training data scenarios
+#
+# 2. COMPARISON FORMAT:
+#    - Results saved as 'cross_validation_lvmogp_ssvi.csv'
+#    - Columns match original: ['no test points', 'no train points', 
+#      'lvm_ssvi_test_RMSE', 'lvm_ssvi_test_NLPD', 'lvm_ssvi_test_RMSE_z',
+#      'lvm_ssvi_test_NLPD_z', 'lvm_ssvi_train_RMSE', 'lvm_ssvi_train_NLPD',
+#      'lvm_ssvi_train_RMSE_z', 'lvm_ssvi_train_NLPD_z', 'seed', 'pct_train', 'param']
+#    - Direct comparison with results/cross_validation.csv baseline
+#
+# 3. KEY PARAMETERS TO TUNE:
+#    - q_latent: Set to 5 to match original bio experiments
+#    - n_inducing: Try [32, 64, 128] - inducing points affect approximation
+#    - total_iters: Try [500, 800, 1200] - training iterations affect quality
+#    - Learning rates: Try different scales for lr.x, lr.hyp, lr.alpha
+#    - rho parameters: Try different SVI step size schedules
+#
+# 4. EVALUATION METRICS:
+#    - RMSE (test & train): Lower is better
+#    - NLPD (test & train): Lower is better
+#    - Compare against baseline models: ['mo_indi', 'lmc', 'avg', 'lvm']
+#
+# 5. AFTER TUNING:
+#    - Apply best parameters to original_cv_ssvi_config.yaml
+#    - Extend seeds to [0-19] and train_percentages to full range for complete evaluation
+
+experimental:
+  description: "Representative CV subset for LVMOGP-SSVI parameter tuning"
+  baseline_comparison: "results/cross_validation.csv"
+  expected_runtime_per_fold: "~5-15 minutes on GPU"
+  total_expected_runtime: "~2-6 hours for 25 CV folds" 

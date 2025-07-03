@@ -49,13 +49,13 @@ gp_ssvi:
     k: 0.6              # Decay rate
 
   # Model architecture
-  q_latent: 12                    # Latent dimension (matches notebook)
+  q_latent: 5                     # Latent dimension - matching bio experiments
   init_signal_to_noise_ratio: 1.0 # Initial signal-to-noise ratio
-  num_u_samples_per_iter: 2       # Number of U samples per iteration
+  num_u_samples_per_iter: 5       # Number of U samples per iteration - matching bio experiments
 
 # Bayesian Optimization settings
 bo:
-  bo_steps: 15          # Number of BO iterations (increased for meaningful results)
+  bo_steps: 40          # Number of BO iterations - matching bio experiments
   seed: 0               # Random seed for reproducibility
   pct_train: 50         # Percentage of data in training (not used in current setup but kept for compatibility)
   

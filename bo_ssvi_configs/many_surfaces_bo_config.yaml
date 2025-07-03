@@ -42,12 +42,12 @@ gp_ssvi:
     t0: 100.0
     k: 0.6
 
-  q_latent: 12
+  q_latent: 5                     # Latent dimension - matching bio experiments
   init_signal_to_noise_ratio: 1.0
-  num_u_samples_per_iter: 2
+  num_u_samples_per_iter: 5       # Number of U samples per iteration - matching bio experiments
 
 bo:
-  bo_steps: 20           # More steps for many surfaces experiment
+  bo_steps: 40           # Number of BO iterations - matching bio experiments
   seed: 0
   pct_train: 50
   test_name: many_r      # Learning many surfaces simultaneously
