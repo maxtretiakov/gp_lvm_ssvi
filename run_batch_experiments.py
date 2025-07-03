@@ -26,39 +26,82 @@ def save_config(config, config_path):
     with open(config_path, 'w') as f:
         yaml.dump(config, f, default_flow_style=False, indent=2)
 
-def run_single_experiment(config_path, experiment_name):
-    """Run a single experiment and return success status."""
+def run_single_experiment(config_path, experiment_name, log_dir):
+    """Run a single experiment with real-time output streaming and log saving."""
     print(f"\n{'='*60}")
     print(f"Running: {experiment_name}")
     print(f"Config: {config_path}")
     print(f"Time: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"{'='*60}")
     
+    # Create log file for this experiment
+    log_file = log_dir / f"{experiment_name}_log.txt"
+    
     try:
-        result = subprocess.run([
-            "python", "run_bo_gp_lvm_ssvi.py", 
-            "--config", str(config_path)
-        ], capture_output=True, text=True, timeout=3600)  # 1 hour timeout
+        # Use Popen for real-time streaming with logging
+        with open(log_file, 'w', encoding='utf-8') as log_f:
+            # Write header to log file
+            log_f.write(f"Experiment: {experiment_name}\n")
+            log_f.write(f"Config: {config_path}\n")
+            log_f.write(f"Start time: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            log_f.write("="*60 + "\n\n")
+            log_f.flush()
+            
+            process = subprocess.Popen([
+                "python", "run_bo_gp_lvm_ssvi.py", 
+                "--config", str(config_path)
+            ], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, 
+               text=True, bufsize=1, universal_newlines=True)
+            
+            # Stream output in real-time and save to log
+            if process.stdout is not None:
+                while True:
+                    output = process.stdout.readline()
+                    if output == '' and process.poll() is not None:
+                        break
+                    if output:
+                        print(output, end='')  # Print to console (real-time)
+                        log_f.write(output)    # Write to log file
+                        log_f.flush()          # Ensure immediate writing
+            
+            # Wait for process to complete
+            return_code = process.wait()
+            
+            # Write completion info to log
+            log_f.write(f"\n" + "="*60 + "\n")
+            log_f.write(f"End time: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            log_f.write(f"Return code: {return_code}\n")
         
-        if result.returncode == 0:
-            print(f"SUCCESS: {experiment_name}")
+        if return_code == 0:
+            print(f"\nSUCCESS: {experiment_name}")
+            print(f"Log saved: {log_file}")
             return True
         else:
-            print(f"FAILED: {experiment_name}")
-            print(f"Error output: {result.stderr}")
+            print(f"\nFAILED: {experiment_name} (return code: {return_code})")
+            print(f"Log with errors saved: {log_file}")
             return False
             
-    except subprocess.TimeoutExpired:
-        print(f"TIMEOUT: {experiment_name} (exceeded 1 hour)")
-        return False
     except Exception as e:
-        print(f"EXCEPTION: {experiment_name} - {e}")
+        print(f"\nEXCEPTION: {experiment_name} - {e}")
+        # Still save exception info to log
+        try:
+            with open(log_file, 'a', encoding='utf-8') as log_f:
+                log_f.write(f"\nEXCEPTION: {e}\n")
+        except:
+            pass
         return False
 
 def run_batch_experiments(base_config_path, quick_test=False):
     """Run a batch of experiments based on the base config."""
     
     base_config = load_config(base_config_path)
+    
+    # Create logs directory for this batch
+    timestamp = datetime.datetime.now().strftime("%m_%d_%H_%M")
+    config_name = Path(base_config_path).stem
+    log_dir = Path(f"batch_logs_{config_name}_{timestamp}")
+    log_dir.mkdir(exist_ok=True)
+    print(f"Experiment logs will be saved to: {log_dir}")
     results = []
     
     if quick_test:
@@ -114,7 +157,7 @@ def run_batch_experiments(base_config_path, quick_test=False):
                 save_config(exp_config, temp_config_path)
                 
                 # Run experiment
-                success = run_single_experiment(temp_config_path, experiment_name)
+                success = run_single_experiment(temp_config_path, experiment_name, log_dir)
                 results.append({
                     'experiment': experiment_name,
                     'seed': seed,
