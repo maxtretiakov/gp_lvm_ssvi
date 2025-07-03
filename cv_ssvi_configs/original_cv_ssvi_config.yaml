@@ -49,9 +49,9 @@ gp_ssvi:
     k: 0.6                 # Decay rate
 
   # Model architecture (required by GPSSVIConfig)
-  q_latent: 12                        # Latent dimension (matches notebook)
+  q_latent: 5                         # Latent dimension - matching bio experiments
   init_signal_to_noise_ratio: 1.0     # Initial signal-to-noise ratio
-  num_u_samples_per_iter: 2           # Number of U samples per iteration
+  num_u_samples_per_iter: 5           # Number of U samples per iteration - matching bio experiments
 
 # Cross Validation specific parameters
 cv:

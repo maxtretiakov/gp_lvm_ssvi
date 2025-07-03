@@ -72,9 +72,10 @@ def run_bo_parameter_tuning(quick_test=False):
     if quick_test:
         # Minimal parameter grid for quick testing
         param_grid = {
-            'q_latent': [8, 12],
-            'n_inducing': [32, 64],
-            'total_iters': [400, 800]
+            # n_inducing fixed at 10 to match original bio experiments
+            'total_iters': [400, 800],
+            'lr_x': [1e-3, 5e-3],
+            'lr_alpha': [5e-3, 1e-2]
         }
         # Reduce experimental scope for quick test
         base_config['experimental']['seeds'] = [0]
@@ -85,9 +86,13 @@ def run_bo_parameter_tuning(quick_test=False):
     else:
         # Full parameter grid
         param_grid = {
-            'q_latent': [8, 12, 16],
-            'n_inducing': [32, 64, 128],
-            'total_iters': [500, 800, 1200]
+            # n_inducing fixed at 10 to match original bio experiments
+            'total_iters': [500, 800, 1200],
+            'lr_x': [5e-4, 1e-3, 5e-3],           # Learning rate for latent variables
+            'lr_hyp': [5e-4, 1e-3, 5e-3],        # Learning rate for hyperparameters
+            'lr_alpha': [1e-3, 5e-3, 1e-2],      # Learning rate for length scales
+            #'rho_t0': [50.0, 100.0, 200.0],      # SVI step size parameter
+            #'rho_k': [0.5, 0.6, 0.7]             # SVI decay rate
         }
         print("Running FULL BO parameter tuning...")
     
@@ -108,9 +113,23 @@ def run_bo_parameter_tuning(quick_test=False):
         
         # Create parameter-specific config
         test_config = base_config.copy()
-        test_config['gp_ssvi']['q_latent'] = param_dict['q_latent']
-        test_config['gp_ssvi']['inducing']['n_inducing'] = param_dict['n_inducing']
+        # n_inducing fixed at 10, q_latent fixed at 5 for consistency with bio experiments
+        test_config['gp_ssvi']['inducing']['n_inducing'] = 10
         test_config['gp_ssvi']['training']['total_iters'] = param_dict['total_iters']
+        
+        # Update learning rates if present
+        if 'lr_x' in param_dict:
+            test_config['gp_ssvi']['lr']['x'] = param_dict['lr_x']
+        if 'lr_hyp' in param_dict:
+            test_config['gp_ssvi']['lr']['hyp'] = param_dict['lr_hyp']
+        if 'lr_alpha' in param_dict:
+            test_config['gp_ssvi']['lr']['alpha'] = param_dict['lr_alpha']
+            
+        # Update rho parameters if present
+        if 'rho_t0' in param_dict:
+            test_config['gp_ssvi']['rho']['t0'] = param_dict['rho_t0']
+        if 'rho_k' in param_dict:
+            test_config['gp_ssvi']['rho']['k'] = param_dict['rho_k']
         
         # Save temporary config
         temp_config_path = Path(f"temp_param_config_{experiment_name}.yaml")
@@ -144,9 +163,10 @@ def run_cv_parameter_tuning(quick_test=False):
     if quick_test:
         # Minimal parameter grid for quick testing
         param_grid = {
-            'q_latent': [8, 12],
-            'n_inducing': [32, 64],
-            'total_iters': [400, 800]
+            # n_inducing fixed at 10 to match original bio experiments
+            'total_iters': [400, 800],
+            'lr_x': [1e-3, 5e-3],
+            'lr_alpha': [5e-3, 1e-2]
         }
         # Reduce experimental scope for quick test
         base_config['cv']['seeds'] = [0, 1]
@@ -155,9 +175,13 @@ def run_cv_parameter_tuning(quick_test=False):
     else:
         # Full parameter grid
         param_grid = {
-            'q_latent': [8, 12, 16],
-            'n_inducing': [32, 64, 128],
-            'total_iters': [500, 800, 1200]
+            # n_inducing fixed at 10 to match original bio experiments
+            'total_iters': [500, 800, 1200],
+            'lr_x': [5e-4, 1e-3, 5e-3],           # Learning rate for latent variables
+            'lr_hyp': [5e-4, 1e-3, 5e-3],        # Learning rate for hyperparameters
+            'lr_alpha': [1e-3, 5e-3, 1e-2],      # Learning rate for length scales
+            'rho_t0': [50.0, 100.0, 200.0],      # SVI step size parameter
+            'rho_k': [0.5, 0.6, 0.7]             # SVI decay rate
         }
         print("Running FULL CV parameter tuning...")
     
@@ -178,9 +202,23 @@ def run_cv_parameter_tuning(quick_test=False):
         
         # Create parameter-specific config
         test_config = base_config.copy()
-        test_config['gp_ssvi']['q_latent'] = param_dict['q_latent']
-        test_config['gp_ssvi']['inducing']['n_inducing'] = param_dict['n_inducing']
+        # n_inducing fixed at 10, q_latent fixed at 5 for consistency with bio experiments
+        test_config['gp_ssvi']['inducing']['n_inducing'] = 10
         test_config['gp_ssvi']['training']['total_iters'] = param_dict['total_iters']
+        
+        # Update learning rates if present
+        if 'lr_x' in param_dict:
+            test_config['gp_ssvi']['lr']['x'] = param_dict['lr_x']
+        if 'lr_hyp' in param_dict:
+            test_config['gp_ssvi']['lr']['hyp'] = param_dict['lr_hyp']
+        if 'lr_alpha' in param_dict:
+            test_config['gp_ssvi']['lr']['alpha'] = param_dict['lr_alpha']
+            
+        # Update rho parameters if present
+        if 'rho_t0' in param_dict:
+            test_config['gp_ssvi']['rho']['t0'] = param_dict['rho_t0']
+        if 'rho_k' in param_dict:
+            test_config['gp_ssvi']['rho']['k'] = param_dict['rho_k']
         
         # Save temporary config
         temp_config_path = Path(f"temp_param_config_{experiment_name}.yaml")

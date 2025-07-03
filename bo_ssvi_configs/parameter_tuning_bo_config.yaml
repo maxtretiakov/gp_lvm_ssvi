@@ -36,7 +36,7 @@ gp_ssvi:
 
   # Inducing points settings - TUNE FOR MEMORY/PERFORMANCE
   inducing:
-    n_inducing: 64          # Number of inducing points - tune this (32, 64, 128)
+    n_inducing: 10          # Number of inducing points per function - matching bio experiments
     selection: perm         # Random permutation selection
     seed: 19                # Seed for inducing point initialization
 
@@ -50,13 +50,13 @@ gp_ssvi:
     k: 0.6                 # Decay rate - tune this
 
   # Model architecture - KEY PARAMETER TO TUNE
-  q_latent: 12                        # Latent dimension - tune this (8, 12, 16)
+  q_latent: 5                         # Latent dimension - matching original bio experiments
   init_signal_to_noise_ratio: 1.0     # Initial signal-to-noise ratio
-  num_u_samples_per_iter: 2           # Number of U samples per iteration
+  num_u_samples_per_iter: 5           # Number of U samples per iteration - matching bio experiments
 
 # Bayesian Optimization settings
 bo:
-  bo_steps: 12             # Reduced BO steps for tuning (original uses 15+)
+  bo_steps: 40             # Number of BO iterations - matching bio experiments
   seed: 0                  # Random seed for reproducibility
   pct_train: 50            # Not used but kept for compatibility
   
@@ -86,7 +86,7 @@ experimental:
 # Notes for parameter tuning:
 # 
 # 1. KEY PARAMETERS TO TUNE:
-#    - q_latent: Try [8, 12, 16] - affects model capacity
+#    - q_latent: Set to 5 to match original bio experiments
 #    - n_inducing: Try [32, 64, 128] - affects approximation quality  
 #    - total_iters: Try [500, 800, 1200] - affects training time/quality
 #    - Learning rates (lr.x, lr.hyp, lr.alpha): Try different scales
