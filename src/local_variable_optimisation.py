@@ -16,6 +16,8 @@ safe_exp = lambda x: torch.exp(torch.clamp(x, min=-MAX_EXP, max=MAX_EXP)) #todo:
 
 def optimize_latents(inner_iters, opt_x, mu_x, log_s2x, Y, K_inv, noise_var, m_u, C_u, Sigma_det, idx, Z, DEV,log_sf2, log_alpha, NUM_U_SAMPLES, GR_CLIP):
     N = Y.shape[0]
+    mu_x = torch.zeros_like(mu_x, device=DEV)
+    log_s2x = torch.zeros_like(log_s2x, device=DEV)
     for _ in range(inner_iters):
         opt_x.zero_grad(set_to_none=True)
         U_smpls = sample_U_batch(m_u, C_u, NUM_U_SAMPLES)
