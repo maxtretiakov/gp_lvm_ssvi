@@ -10,7 +10,13 @@ from torch.func import vmap
 torch.set_default_dtype(torch.float64)
 
 from src.gp_dataclasses import GPSSVIConfig
+from src.local_variable_optimisation import local_step, optimize_latents
+from src.inducing_points import sample_U_batch
+
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
 
 def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict: dict) -> dict:
     # --------------------------- misc -----------------------------------
@@ -96,11 +102,6 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
     def Sigma_u(C_u):
         return C_u @ C_u.transpose(-1, -2)  # (D, M, M)
 
-   
-    def sample_U_batch(m_u: torch.Tensor, C_u: torch.Tensor, S: int) -> torch.Tensor:
-        eps   = torch.randn(S, *m_u.shape, device=m_u.device).unsqueeze(-1)   # (S,D,M,1)
-        C_exp = C_u.unsqueeze(0).expand(S, -1, -1, -1)                        # (S,D,M,M)
-        return m_u.unsqueeze(0) + (C_exp @ eps).squeeze(-1)                   # (S,D,M)
 
 
     def natural_from_moment(m_u, C_u):
@@ -122,38 +123,7 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
     Lambda_prior = (-0.5 * K_inv).expand(D, M, M).clone()  # (D, M, M)
 
 
-    # --------------------- psi statistics -------------------------------
-    def compute_psi(mu, s2):
-        """
-        mu : (B, Q)
-        s2 : (B, Q)
-        Returns:
-            psi0 : (B,)
-            psi1 : (B, M)
-            psi2 : (B, M, M)
-        """
-        sf2 = safe_exp(log_sf2.clamp(*BOUNDS["log_sf2"]))  # ()
-        alpha = safe_exp(log_alpha.clamp(*BOUNDS["log_alpha"]))  # (Q,)
 
-        psi0 = torch.full((mu.size(0),), sf2.item(), device=DEV)  # (B,)
-
-        d1 = alpha * s2 + 1.0  # (B, Q)
-        # numerically-stable: log-prod to exp(sum log)
-        log_c1 = -0.5 * torch.log(d1).sum(-1, keepdim=True)
-        c1 = torch.exp(log_c1)                                   # (B,1)
-        diff = mu.unsqueeze(1) - Z  # (B, M, Q)
-        psi1 = sf2 * c1 * safe_exp(-0.5 * ((alpha * diff ** 2) / d1.unsqueeze(1)).sum(-1))  # (B, M)
-
-        d2 = 1.0 + 2.0 * alpha * s2  # (B, Q)
-        log_c2 = -0.5 * torch.log(d2).sum(-1, keepdim=True)
-        c2 = torch.exp(log_c2)                                   # (B,1)
-        ZZ = Z.unsqueeze(1) - Z.unsqueeze(0)  # (M, M, Q)
-        dist = (alpha * ZZ ** 2).sum(-1)  # (M, M)
-        mid = 0.5 * (Z.unsqueeze(1) + Z.unsqueeze(0))  # (M, M, Q)
-        mu_c = (mu.unsqueeze(1).unsqueeze(1) - mid) ** 2  # (B, M, M, Q)
-        expo = -0.25 * dist - (alpha * mu_c / d2.unsqueeze(1).unsqueeze(1)).sum(-1)  # (B, M, M)
-        psi2 = sf2 ** 2 * c2.unsqueeze(-1) * safe_exp(expo)  # (B,M,M)
-        return psi0, psi1, psi2
 
 
     # ---------- KL(q(U) || p(U)) ----------
@@ -190,56 +160,6 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
         return kl_per_d.sum()  # scalar
 
 
-    # --------------------------- local step ------------------------------
-    def local_step(idx, U_sample, Sigma_det, update_beta, dbg=False):
-        """
-        idx         : (B,)        mini-batch indices
-        U_sample    : (D, M)      sample of inducing outputs
-        Sigma_det   : (D, M, M)   detached covariance of q(U)
-        update_beta : bool        whether noise is trainable here
-        Returns     : scalar ELBO , r (B,D,M) , Q (B,D,M,M)
-        """
-        mu = mu_x[idx]  # (B, Q)
-        s2 = log_s2x[idx].exp()  # (B, Q)
-        B = mu.size(0)
-
-        psi0, psi1, psi2 = compute_psi(mu, s2)  # (B,), (B,M), (B,M,M)
-        A = psi1 @ K_inv  # (B, M)
-
-        if dbg and DEBUG:
-            print("Shapes  A", A.shape, "psi1", psi1.shape, "psi2", psi2.shape)
-
-        f_mean = A @ U_sample.T  # (B, D)
-        var_f = torch.stack([(A @ Sigma_det[d] * A).sum(-1) for d in range(D)], 1)  # (B, D)
-
-        noise = noise_var() if update_beta else noise_var().detach()  # ()
-        tr_term = (psi2 * K_inv).sum((-2, -1))  # (B,)
-        sigma2 = torch.clamp(noise + psi0 - tr_term, 1e-6, 1e3)  # (B,)
-        sigma2_unsq = sigma2.unsqueeze(-1)  # (B,1)
-
-        # ---------------- r ---------------------------------------------
-        Y_div = Y[idx] / sigma2_unsq  # (B, D)
-        r = Y_div.unsqueeze(-1) * A.unsqueeze(1)  # (B, D, M)
-
-        # ---------------- Q ---------------------------------------------
-        A_exp = A.unsqueeze(1)  # (B, 1, M)
-        outer = A_exp.transpose(-1, -2) * A_exp  # (B, 1, M, M)
-        outer = outer.unsqueeze(1)  # (B, 1, M, M)
-        outer = outer.expand(B, D, M, M)  # (B, D, M, M)
-        Q_mat = (-0.5 / sigma2_unsq).unsqueeze(-1).unsqueeze(-1) * outer  # (B, D, M, M)
-
-        quad = ((Y[idx] - f_mean) ** 2 + var_f) / sigma2_unsq  # (B, D)
-        quad = torch.clamp(quad, max=CLIP_QUAD)
-        log_like = (-0.5 * math.log(2.0 * math.pi)
-                    - 0.5 * sigma2.log().unsqueeze(-1)
-                    - 0.5 * quad).sum(-1)  # (B,)
-        kl_x = 0.5 * ((s2 + mu ** 2) - s2.log() - 1.0).sum(-1)  # (B,)
-        ll_mean  = log_like.mean()       
-        klx_mean = kl_x.mean()           
-        elbo_mean = ll_mean - klx_mean
-        return elbo_mean, ll_mean, klx_mean, r.detach(), Q_mat.detach()
-
-
     # --------------------------- optimizers ------------------------------
     opt_x = torch.optim.Adam([mu_x, log_s2x], lr=LR_X)
     opt_hyp = torch.optim.Adam([log_sf2, log_beta_inv, Z], lr=LR_HYP)
@@ -263,17 +183,7 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
 
         # ----- inner loop: update latent X ------------------------------
         inner_iters = INNER0 if t <= 50 else INNER
-        for _ in range(inner_iters):
-            opt_x.zero_grad(set_to_none=True)
-            U_smpls = sample_U_batch(m_u, C_u, NUM_U_SAMPLES)
-            elbo_vec = vmap(lambda u: local_step(idx, u, Sigma_det, False)[0])(U_smpls)
-            local_elbo_batch_mean_x = elbo_vec.mean()
-            loss_x = -local_elbo_batch_mean_x * N
-            loss_x.backward(retain_graph=True)
-            torch.nn.utils.clip_grad_norm_([mu_x, log_s2x], GR_CLIP)
-            opt_x.step()
-            with torch.no_grad():
-                log_s2x.clamp_(*BOUNDS["log_s2x"])
+        optimize_latents(inner_iters, opt_x, mu_x, log_s2x, Y, K_inv, noise_var, m_u, C_u, Sigma_det, idx, Z, DEV, log_sf2, log_alpha, NUM_U_SAMPLES, GR_CLIP)
 
         # ----- update kernel hyper-params and q(U) ----------------------
         opt_hyp.zero_grad(set_to_none=True)
@@ -281,7 +191,7 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
         K_MM, K_inv = update_K_and_inv()
         U_smpls = sample_U_batch(m_u, C_u, NUM_U_SAMPLES)
         elbo_vec, ll_vec, klx_vec, r_stack, Q_stack = vmap(
-            lambda u: local_step(idx, u, Sigma_u(C_u), True)
+            lambda u: local_step(idx=idx, U_sample=u, Sigma_det=Sigma_u(C_u), update_beta=True, mu_x=mu_x, log_s2x=log_s2x, Y=Y, K_inv=K_inv, noise_var=noise_var, log_sf2=log_sf2, log_alpha=log_alpha, Z=Z, DEV=DEV)
         )(U_smpls)
         local_elbo_batch_mean = elbo_vec.mean()
         ll_b_mean   = ll_vec.mean()
@@ -368,7 +278,7 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
             with torch.no_grad():
                 U_smpls_full = sample_U_batch(m_u, C_u, NUM_U_SAMPLES)
                 elbo_vec, ll_vec, klx_vec, *_ = vmap(
-                    lambda u: local_step(torch.arange(N, device=DEV), u, Sigma_u(C_u), False)
+                    lambda u: local_step(idx=torch.arange(N, device=DEV), U_sample=u, Sigma_det=Sigma_u(C_u), update_beta=False, mu_x=mu_x, log_s2x=log_s2x, Y=Y, K_inv=K_inv, noise_var=noise_var, log_sf2=log_sf2, log_alpha=log_alpha, Z=Z, DEV=DEV)
                 )(U_smpls_full) 
                 local_elbo_full_n_mean = elbo_vec.mean()
                 LL_full   = (ll_vec.mean()  * N).item()
