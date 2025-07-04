@@ -1,13 +1,13 @@
 #!/bin/bash
 # Job script to run all 27 LR tuning configs for LVMOGP-SSVI
-# Each config runs once with 2000 iterations and 40 BO steps for convergence analysis
+# Each config runs once with 2000 iterations and 10 BO steps for convergence analysis
 # Logs all output to files while showing on console
 
 echo "=========================================="
 echo "Starting LR Tuning Experiments"
 echo "Total configs: 27"
 echo "Iterations per config: 2000"
-echo "BO steps per config: 40"
+echo "BO steps per config: 10"
 echo "=========================================="
 
 # Get the directory of this script
