@@ -1,0 +1,52 @@
+# LR Tuning Config: lr_x=5e-3, lr_hyp=5e-4, lr_alpha=5e-3
+# Single run with 2000 iterations for convergence analysis
+
+gp_ssvi:
+  device: cuda
+  debug: false
+  dataset:
+    type: oil
+    n_samples: 1000
+    noise: 0.1
+    random_state: null
+  lr:
+    x: 5e-3
+    hyp: 5e-4
+    alpha: 5e-3
+  training:
+    batch_size: 128
+    total_iters: 2000
+    inner_iters:
+      start: 70
+      after: 60
+      switch: 50
+  init_latent_dist:
+    method: default
+    custom_path: ""
+  inducing:
+    n_inducing: 10
+    selection: perm
+    seed: 19
+  jitter: 5e-6
+  max_exp: 60.0
+  rho:
+    t0: 100.0
+    k: 0.6
+  q_latent: 5
+  init_signal_to_noise_ratio: 1.0
+  num_u_samples_per_iter: 5
+
+bo:
+  bo_steps: 40
+  seed: 0
+  pct_train: 50
+  test_name: many_r
+  start_point: centre
+
+performance:
+  gradient_checkpointing: false
+  monitor_convergence: true
+  convergence_tolerance: 1e-6
+  early_stopping_patience: 50
+  log_frequency: 10
+  save_intermediate: false 
