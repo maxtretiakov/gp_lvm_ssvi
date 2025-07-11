@@ -19,6 +19,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict: dict) -> dict:
+
     # --------------------------- misc -----------------------------------
     DEV = config.device_resolved()
     DEBUG = config.debug
@@ -183,7 +184,7 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
 
         # ----- inner loop: update latent X ------------------------------
         inner_iters = INNER0 if t <= 50 else INNER
-        optimize_latents(inner_iters, opt_x, mu_x, log_s2x, Y, K_inv, noise_var, m_u, C_u, Sigma_det, idx, Z, DEV, log_sf2, log_alpha, NUM_U_SAMPLES, GR_CLIP)
+        optimize_latents(inner_iters=inner_iters, opt_x=opt_x, Y=Y, K_inv=K_inv, noise_var=noise_var, m_u=m_u, C_u=C_u, Sigma_det=Sigma_det, idx=idx, Z=Z, DEV=DEV, log_sf2=log_sf2, log_alpha=log_alpha, BATCH_SIZE=BATCH, NUM_LATENT_DIMS=Q, NUM_U_SAMPLES=NUM_U_SAMPLES, GR_CLIP=GR_CLIP)
 
         # ----- update kernel hyper-params and q(U) ----------------------
         opt_hyp.zero_grad(set_to_none=True)
