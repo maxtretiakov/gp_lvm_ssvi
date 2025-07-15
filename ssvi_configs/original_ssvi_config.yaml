@@ -9,17 +9,17 @@ dataset:
 # learning rates
 lr:
   x:   1e-3           # Adam for {mu_x, log_s2x}
-  hyp: 1e-3           # Adam for kernel hypers + Z
-  alpha: 5e-3         # Adam for alpha
+  hyp: 8e-4           # Adam for kernel hypers + Z
+  alpha: 1e-3         # Adam for alpha
 
 # training schedule
 training:
   batch_size: 128     # B
   total_iters: 500    # T_TOTAL
   inner_iters:
-    start:  40        # INNER0 (first   inner_switch iters)
-    after:  30        # INNER  (after   inner_switch)
-    switch: 50        # iteration number to switch
+    start:  60        # INNER0 (first   inner_switch iters)
+    after:  50        # INNER  (after   inner_switch)
+    switch: 100        # iteration number to switch
 
 # init mu_x, log_sigma2_x
 init_latent_dist:
@@ -38,12 +38,12 @@ max_exp: 60.0
 
 # SVI step size rho(t) = (t0 + t)^(-k)
 rho:
-  t0: 100.0
-  k:  0.6
+  t0: 250.0
+  k:  0.50
 
 # model structure
 q_latent:   12        # Q  (= D for the oil data)
 
 # additional
 init_signal_to_noise_ratio: 1.0
-num_u_samples_per_iter: 2
+num_u_samples_per_iter: 6
