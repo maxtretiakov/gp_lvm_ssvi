@@ -9,8 +9,8 @@ dataset:
 # learning rates
 lr:
   x:   1e-3           # Adam for {mu_x, log_s2x}
-  hyp: 8e-4           # Adam for kernel hypers + Z
-  alpha: 1e-3         # Adam for alpha
+  hyp: 1e-3           # Adam for kernel hypers + Z
+  alpha: 4e-3         # Adam for alpha
 
 # training schedule
 training:
@@ -38,8 +38,8 @@ max_exp: 60.0
 
 # SVI step size rho(t) = (t0 + t)^(-k)
 rho:
-  t0: 250.0
-  k:  0.50
+  t0: 100.0
+  k:  0.60
 
 # model structure
 q_latent:   12        # Q  (= D for the oil data)
