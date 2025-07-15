@@ -135,7 +135,7 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
         sf2 = safe_exp(log_sf2.clamp(*BOUNDS["log_sf2"]))  # ()
         alpha = safe_exp(log_alpha.clamp(*BOUNDS["log_alpha"]))  # (Q,)
 
-        psi0 = torch.full((mu.size(0),), sf2.item(), device=DEV)  # (B,)
+        psi0 = torch.ones(mu.size(0), device=DEV) * sf2  # (B,)
 
         d1 = alpha * s2 + 1.0  # (B, Q)
         # numerically-stable: log-prod to exp(sum log)
@@ -210,7 +210,11 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
             print("Shapes  A", A.shape, "psi1", psi1.shape, "psi2", psi2.shape)
 
         f_mean = A @ U_sample.T  # (B, D)
-        var_f = torch.stack([(A @ Sigma_det[d] * A).sum(-1) for d in range(D)], 1)  # (B, D)
+
+        w = torch.matmul(K_inv, U_sample.T) 
+        tmp = torch.matmul(psi2, w)
+        quad_nd = (w.unsqueeze(0) * tmp).sum(dim=1)
+        var_x = torch.clamp(quad_nd - f_mean**2, min=0.0)
 
         noise = noise_var() if update_beta else noise_var().detach()  # ()
         tr_term = (psi2 * K_inv).sum((-2, -1))  # (B,)
@@ -228,7 +232,7 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
         outer = outer.expand(B, D, M, M)  # (B, D, M, M)
         Q_mat = (-0.5 / sigma2_unsq).unsqueeze(-1).unsqueeze(-1) * outer  # (B, D, M, M)
 
-        quad = ((Y[idx] - f_mean) ** 2 + var_f) / sigma2_unsq  # (B, D)
+        quad = ((Y[idx] - f_mean) ** 2 + var_x) / sigma2_unsq  # (B, D)
         quad = torch.clamp(quad, max=CLIP_QUAD)
         log_like = (-0.5 * math.log(2.0 * math.pi)
                     - 0.5 * sigma2.log().unsqueeze(-1)
