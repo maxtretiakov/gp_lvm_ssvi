@@ -1,0 +1,42 @@
+# Aggressive SSVI Configuration - Designed to Escape Local Minima
+# Uses higher learning rates and more aggressive optimization
+
+device: "cuda"
+debug: false
+jitter: 5.0e-6
+max_exp: 60.0
+q_latent: 12
+init_signal_to_noise_ratio: 1.2  # Lower initial SNR for more room to grow
+num_u_samples_per_iter: 6
+
+lr:
+  x: 0.0015      # Increased from 0.001 for more exploration
+  hyp: 0.001     # Back to original aggressive value
+  alpha: 0.005   # Increased from 0.004 for better lengthscale learning
+
+rho:
+  t0: 80.0       # Lower t0 for less aggressive early decay
+  k: 0.5         # Even slower decay to maintain exploration
+
+training:
+  batch_size: 128
+  total_iters: 1000
+  inner_iters:
+    start: 80      # More inner iterations for thorough local optimization
+    after: 60      # More inner iterations throughout
+    switch: 100
+
+inducing:
+  n_inducing: 64
+  selection: "perm"
+  seed: 19
+
+init_latent_dist:
+  method: "default"
+  custom_path: ""
+
+dataset:
+  type: "oil"
+  n_samples: 1000
+  noise: 0.1
+  random_state: null 
