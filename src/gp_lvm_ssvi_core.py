@@ -269,26 +269,35 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
 
         # ----- inner loop: update latent X and noise beta jointly ----------
         inner_iters = INNER0 if t <= 50 else INNER
-        for _ in range(inner_iters):
+        for inner_iter in range(inner_iters):
             opt_x.zero_grad(set_to_none=True)
-            opt_hyp.zero_grad(set_to_none=True)  # Include beta in local optimization
+            
+            # Only update beta occasionally in inner loop for stability
+            update_beta_inner = (inner_iter % 3 == 0) and (t > 50)  # Every 3rd iteration after warmup
+            
+            if update_beta_inner:
+                opt_hyp.zero_grad(set_to_none=True)
+                
             U_smpls = sample_U_batch(m_u, C_u, NUM_U_SAMPLES)
-            elbo_vec = vmap(lambda u: local_step(idx, u, Sigma_det, True)[0])(U_smpls)  # update_beta=True
+            elbo_vec = vmap(lambda u: local_step(idx, u, Sigma_det, update_beta_inner)[0])(U_smpls)
             local_elbo_batch_mean_x = elbo_vec.mean()
             loss_x = -local_elbo_batch_mean_x * N
             loss_x.backward(retain_graph=True)
             
             # Separate gradient clipping for stability
             torch.nn.utils.clip_grad_norm_([mu_x, log_s2x], GR_CLIP)
-            torch.nn.utils.clip_grad_norm_([log_beta_inv], GR_CLIP * 0.1)  # More conservative for beta
+            
+            if update_beta_inner:
+                torch.nn.utils.clip_grad_norm_([log_beta_inv], GR_CLIP * 0.05)  # Very conservative for beta
             
             opt_x.step()
             
-            # Update beta only (exclude other hyperparameters from inner loop)
-            log_beta_inv_grad = log_beta_inv.grad
-            if log_beta_inv_grad is not None:
-                with torch.no_grad():
-                    log_beta_inv -= LR_HYP * 0.1 * log_beta_inv_grad  # Conservative beta learning rate
+            # Update beta with very conservative learning rate and SNR limit
+            if update_beta_inner and log_beta_inv.grad is not None:
+                current_snr = safe_exp(log_sf2).item() / noise_var().item()
+                if current_snr < 50.0:  # Prevent excessive SNR
+                    with torch.no_grad():
+                        log_beta_inv -= LR_HYP * 0.02 * log_beta_inv.grad  # Very conservative beta learning rate
             
             with torch.no_grad():
                 log_s2x.clamp_(*BOUNDS["log_s2x"])

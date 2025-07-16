@@ -1,0 +1,43 @@
+# Conservative SSVI Configuration for Joint Beta Optimization
+# This config uses more conservative learning rates and parameters
+# to prevent aggressive noise parameter updates
+
+device: "cuda"
+debug: false
+jitter: 5.0e-6
+max_exp: 60.0
+q_latent: 12
+init_signal_to_noise_ratio: 2.0  # More conservative initial SNR
+num_u_samples_per_iter: 6
+
+lr:
+  x: 0.0008      # Slightly reduced from 0.001
+  hyp: 0.0005    # Reduced from 0.001 for more conservative hyperparameter updates  
+  alpha: 0.003   # Slightly reduced from 0.004
+
+rho:
+  t0: 150.0      # Increased from 100.0 for more stable natural gradients
+  k: 0.6
+
+training:
+  batch_size: 128
+  total_iters: 750   # Increased iterations to allow for slower convergence
+  inner_iters:
+    start: 50        # Reduced from 60 to prevent over-optimization early
+    after: 40        # Reduced from 50 
+    switch: 100
+
+inducing:
+  n_inducing: 64
+  selection: "perm"
+  seed: 19
+
+init_latent_dist:
+  method: "default"
+  custom_path: ""
+
+dataset:
+  type: "oil"
+  n_samples: 1000
+  noise: 0.1
+  random_state: null 
