@@ -258,26 +258,41 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
     mu_x_prev   = mu_x.detach().clone()
     Z_prev      = Z.detach().clone()
     alpha_prev  = log_alpha.detach().clone()
+    beta_prev   = log_beta_inv.detach().clone()
     
     snapshots = {}
     iters, full_elbo_hist, local_elbo_hist, ll_hist, klx_hist, klu_hist = [], [], [], [], [], []
+    beta_history = []  # Track beta evolution for stability monitoring
     for t in trange(1, T_TOTAL + 1, ncols=100):
         Sigma_det = Sigma_u(C_u).detach()  # (D, M, M)
         idx = torch.randint(0, N, (BATCH,), device=DEV)  # (B,)
 
-        # ----- inner loop: update latent X ------------------------------
+        # ----- inner loop: update latent X and noise beta jointly ----------
         inner_iters = INNER0 if t <= 50 else INNER
         for _ in range(inner_iters):
             opt_x.zero_grad(set_to_none=True)
+            opt_hyp.zero_grad(set_to_none=True)  # Include beta in local optimization
             U_smpls = sample_U_batch(m_u, C_u, NUM_U_SAMPLES)
-            elbo_vec = vmap(lambda u: local_step(idx, u, Sigma_det, False)[0])(U_smpls)
+            elbo_vec = vmap(lambda u: local_step(idx, u, Sigma_det, True)[0])(U_smpls)  # update_beta=True
             local_elbo_batch_mean_x = elbo_vec.mean()
             loss_x = -local_elbo_batch_mean_x * N
             loss_x.backward(retain_graph=True)
+            
+            # Separate gradient clipping for stability
             torch.nn.utils.clip_grad_norm_([mu_x, log_s2x], GR_CLIP)
+            torch.nn.utils.clip_grad_norm_([log_beta_inv], GR_CLIP * 0.1)  # More conservative for beta
+            
             opt_x.step()
+            
+            # Update beta only (exclude other hyperparameters from inner loop)
+            log_beta_inv_grad = log_beta_inv.grad
+            if log_beta_inv_grad is not None:
+                with torch.no_grad():
+                    log_beta_inv -= LR_HYP * 0.1 * log_beta_inv_grad  # Conservative beta learning rate
+            
             with torch.no_grad():
                 log_s2x.clamp_(*BOUNDS["log_s2x"])
+                log_beta_inv.clamp_(*BOUNDS["log_beta"])
 
         # ----- update kernel hyper-params and q(U) ----------------------
         opt_hyp.zero_grad(set_to_none=True)
@@ -324,17 +339,27 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
                     grads = [p.grad.flatten() for p in params if p.grad is not None]
                     return torch.cat(grads).norm().item() if grads else 0.0
                 print(f"    grad_norm_x   ={grad_norm([mu_x, log_s2x]):.2e}, "
-                    f"grad_norm_hyp ={grad_norm([log_sf2, Z, log_beta_inv]):.2e}, "
-                    f"grad_norm_alpha={grad_norm([log_alpha]):.2e}")
+                    f"grad_norm_hyp ={grad_norm([log_sf2, Z]):.2e}, "
+                    f"grad_norm_alpha={grad_norm([log_alpha]):.2e}, "
+                    f"grad_norm_beta={grad_norm([log_beta_inv]):.2e}")
 
                 # 5) parameter update norms
                 def step_norm(new, old):
                     return (new - old).norm().item()
                 print(f"    step_norm_x   ={step_norm(mu_x, mu_x_prev):.2e}, "
                     f"step_norm_hyp ={step_norm(Z, Z_prev):.2e}, "
-                    f"step_norm_alpha={step_norm(log_alpha, alpha_prev):.2e}")
+                    f"step_norm_alpha={step_norm(log_alpha, alpha_prev):.2e}, "
+                    f"step_norm_beta={step_norm(log_beta_inv, beta_prev):.2e}")
 
-                # 6) inducing point distance stats
+                # 6) beta stability monitoring
+                current_beta = noise_var().item()
+                beta_history.append(current_beta)
+                if len(beta_history) >= 10:
+                    beta_variance = torch.tensor(beta_history[-10:]).var().item()
+                    print(f"    beta_stability: current={current_beta:.3e}, "
+                          f"variance_last_10={beta_variance:.2e}")
+
+                # 7) inducing point distance stats
                 dZ = torch.pdist(Z)
                 print(f"    Z_distances min={dZ.min():.2e}, max={dZ.max():.2e}")
 
@@ -342,6 +367,7 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
                 mu_x_prev.copy_(mu_x)
                 Z_prev.copy_(Z)
                 alpha_prev.copy_(log_alpha)
+                beta_prev.copy_(log_beta_inv)
 
 
         opt_hyp.step()
@@ -387,6 +413,8 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
             klu_hist.append(kl_u_full)
             print(f"\nDATASET FULL ELBO @ {t:3d}: {full_elbo:.4e}  "
                   f"LL={LL_full:.4e}  KL_X={KLx_full:.4e}  KL_U={kl_u_full:.4e}")
+            print(f"    beta_monitor: noise={noise_var().item():.3e}, "
+                  f"snr={safe_exp(log_sf2).item()/noise_var().item():.2f}")
             
         if t % 250 == 0:
             with torch.no_grad():
