@@ -272,8 +272,8 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
         for inner_iter in range(inner_iters):
             opt_x.zero_grad(set_to_none=True)
             
-            # Only update beta occasionally in inner loop for stability
-            update_beta_inner = (inner_iter % 3 == 0) and (t > 50)  # Every 3rd iteration after warmup
+            # Update beta more frequently but still controlled
+            update_beta_inner = (inner_iter % 2 == 0) and (t > 30)  # Every 2nd iteration after shorter warmup
             
             if update_beta_inner:
                 opt_hyp.zero_grad(set_to_none=True)
@@ -288,16 +288,16 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
             torch.nn.utils.clip_grad_norm_([mu_x, log_s2x], GR_CLIP)
             
             if update_beta_inner:
-                torch.nn.utils.clip_grad_norm_([log_beta_inv], GR_CLIP * 0.05)  # Very conservative for beta
+                torch.nn.utils.clip_grad_norm_([log_beta_inv], GR_CLIP * 0.1)  # Moderate clipping for beta
             
             opt_x.step()
             
-            # Update beta with very conservative learning rate and SNR limit
+            # Update beta with moderate learning rate and higher SNR limit
             if update_beta_inner and log_beta_inv.grad is not None:
                 current_snr = safe_exp(log_sf2).item() / noise_var().item()
-                if current_snr < 50.0:  # Prevent excessive SNR
+                if current_snr < 100.0:  # Allow higher SNR before limiting
                     with torch.no_grad():
-                        log_beta_inv -= LR_HYP * 0.02 * log_beta_inv.grad  # Very conservative beta learning rate
+                        log_beta_inv -= LR_HYP * 0.05 * log_beta_inv.grad  # Moderate beta learning rate
             
             with torch.no_grad():
                 log_s2x.clamp_(*BOUNDS["log_s2x"])

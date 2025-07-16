@@ -1,0 +1,42 @@
+# Balanced SSVI Configuration - Middle Ground Between Conservative and Aggressive
+# Aims to avoid both pathological beta behavior AND local minima
+
+device: "cuda"
+debug: false
+jitter: 5.0e-6
+max_exp: 60.0
+q_latent: 12
+init_signal_to_noise_ratio: 1.5  # Slightly lower than conservative (2.0)
+num_u_samples_per_iter: 6
+
+lr:
+  x: 0.001       # Back to original (was 0.0008)
+  hyp: 0.0007    # Moderate increase (was 0.0005)
+  alpha: 0.004   # Back to original (was 0.003)
+
+rho:
+  t0: 100.0      # Reduce from 150.0 for less aggressive decay
+  k: 0.55        # Slower decay than default 0.6
+
+training:
+  batch_size: 128
+  total_iters: 1000   # More iterations to allow proper convergence
+  inner_iters:
+    start: 60          # Restore original (was 50)
+    after: 50          # Restore original (was 40)
+    switch: 100
+
+inducing:
+  n_inducing: 64
+  selection: "perm"
+  seed: 19
+
+init_latent_dist:
+  method: "default"
+  custom_path: ""
+
+dataset:
+  type: "oil"
+  n_samples: 1000
+  noise: 0.1
+  random_state: null 
