@@ -2,7 +2,6 @@ import torch
 import math
 from torch import vmap
 from src.inducing_points import sample_U_batch
-from pdb import set_trace as st
 
 #todo: move all of these values either to one file or 
 MAX_EXP = 60
@@ -24,7 +23,6 @@ def optimize_latents(inner_iters, opt_x, Y, K_inv, noise_var, m_u, C_u, Sigma_de
         elbo_vec = vmap(lambda u: local_step(idx=idx, U_sample=u, Sigma_det=Sigma_det, update_beta=False, mu_x_batch=mu_x_batch, log_s2x_batch=log_s2x_batch, Y=Y, K_inv=K_inv, noise_var=noise_var, log_sf2=log_sf2, log_alpha=log_alpha, Z=Z, DEV=DEV)[0])(U_smpls)
         local_elbo_batch_mean_x = elbo_vec.mean()
         loss_x = -local_elbo_batch_mean_x * N
-        st()
         loss_x.backward(retain_graph=True)
         torch.nn.utils.clip_grad_norm_([mu_x_batch, log_s2x_batch], GR_CLIP)
         opt_x.step()
