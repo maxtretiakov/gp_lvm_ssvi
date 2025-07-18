@@ -13,21 +13,34 @@ BOUNDS = {"log_sf2": (-8.0, 8.0), "log_alpha": (-20.0, 20.0),
 
 safe_exp = lambda x: torch.exp(torch.clamp(x, min=-MAX_EXP, max=MAX_EXP)) #todo: pull out files into src/utils.py
 
-def optimize_latents(inner_iters, opt_x, Y, K_inv, noise_var, m_u, C_u, Sigma_det, idx, Z, DEV,log_sf2, log_alpha, BATCH_SIZE, NUM_LATENT_DIMS, NUM_U_SAMPLES, GR_CLIP):
+def optimize_latents(inner_iters, opt_x, Y, K_inv, noise_var, m_u, C_u, Sigma_det, idx, Z, DEV, log_sf2, log_alpha, mu_x, log_s2x, NUM_U_SAMPLES, GR_CLIP, LR_X):
     N = Y.shape[0]
-    mu_x_batch = torch.zeros((BATCH_SIZE, NUM_LATENT_DIMS), device=DEV, requires_grad=True)  # (B, Q)
-    log_s2x_batch = torch.zeros((BATCH_SIZE, NUM_LATENT_DIMS), device=DEV, requires_grad=True)  # (B, Q)
+    BATCH_SIZE = len(idx)
+    NUM_LATENT_DIMS = mu_x.shape[1]
+    
+    # Create zero-initialized batch tensors
+    mu_x_batch = torch.zeros((BATCH_SIZE, NUM_LATENT_DIMS), device=DEV, requires_grad=True)
+    log_s2x_batch = torch.zeros((BATCH_SIZE, NUM_LATENT_DIMS), device=DEV, requires_grad=True)
+    
+    # Create optimizer for the batch tensors
+    opt_x_batch = torch.optim.Adam([mu_x_batch, log_s2x_batch], lr=LR_X)
+    
     for _ in range(inner_iters):
-        opt_x.zero_grad(set_to_none=True)
+        opt_x_batch.zero_grad(set_to_none=True)
         U_smpls = sample_U_batch(m_u, C_u, NUM_U_SAMPLES)
         elbo_vec = vmap(lambda u: local_step(idx=idx, U_sample=u, Sigma_det=Sigma_det, update_beta=False, mu_x_batch=mu_x_batch, log_s2x_batch=log_s2x_batch, Y=Y, K_inv=K_inv, noise_var=noise_var, log_sf2=log_sf2, log_alpha=log_alpha, Z=Z, DEV=DEV)[0])(U_smpls)
         local_elbo_batch_mean_x = elbo_vec.mean()
         loss_x = -local_elbo_batch_mean_x * N
         loss_x.backward(retain_graph=True)
         torch.nn.utils.clip_grad_norm_([mu_x_batch, log_s2x_batch], GR_CLIP)
-        opt_x.step()
+        opt_x_batch.step()
         with torch.no_grad():
             log_s2x_batch.clamp_(*BOUNDS["log_s2x"])
+    
+    # Copy optimized batch values back to global tensors
+    with torch.no_grad():
+        mu_x[idx] = mu_x_batch.detach()
+        log_s2x[idx] = log_s2x_batch.detach()
 
 
 
