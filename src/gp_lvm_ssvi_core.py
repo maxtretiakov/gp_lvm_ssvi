@@ -184,7 +184,7 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
 
         # ----- inner loop: update latent X ------------------------------
         inner_iters = INNER0 if t <= 50 else INNER
-        optimize_latents(inner_iters=inner_iters, opt_x=opt_x, Y=Y, K_inv=K_inv, noise_var=noise_var, m_u=m_u, C_u=C_u, Sigma_det=Sigma_det, idx=idx, Z=Z, DEV=DEV, log_sf2=log_sf2, log_alpha=log_alpha, BATCH_SIZE=BATCH, NUM_LATENT_DIMS=Q, NUM_U_SAMPLES=NUM_U_SAMPLES, GR_CLIP=GR_CLIP)
+        optimize_latents(inner_iters=inner_iters, opt_x=opt_x, Y=Y, K_inv=K_inv, noise_var=noise_var, m_u=m_u, C_u=C_u, Sigma_det=Sigma_det, idx=idx, Z=Z, DEV=DEV, log_sf2=log_sf2, log_alpha=log_alpha, mu_x=mu_x, log_s2x=log_s2x, NUM_U_SAMPLES=NUM_U_SAMPLES, GR_CLIP=GR_CLIP, LR_X=LR_X)
 
         # ----- update kernel hyper-params and q(U) ----------------------
         opt_hyp.zero_grad(set_to_none=True)
@@ -192,7 +192,7 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
         K_MM, K_inv = update_K_and_inv()
         U_smpls = sample_U_batch(m_u, C_u, NUM_U_SAMPLES)
         elbo_vec, ll_vec, klx_vec, r_stack, Q_stack = vmap(
-            lambda u: local_step(idx=idx, U_sample=u, Sigma_det=Sigma_u(C_u), update_beta=True, mu_x=mu_x, log_s2x=log_s2x, Y=Y, K_inv=K_inv, noise_var=noise_var, log_sf2=log_sf2, log_alpha=log_alpha, Z=Z, DEV=DEV)
+            lambda u: local_step(idx=idx, U_sample=u, Sigma_det=Sigma_u(C_u), update_beta=True, mu_x_batch=mu_x[idx], log_s2x_batch=log_s2x[idx], Y=Y, K_inv=K_inv, noise_var=noise_var, log_sf2=log_sf2, log_alpha=log_alpha, Z=Z, DEV=DEV)
         )(U_smpls)
         local_elbo_batch_mean = elbo_vec.mean()
         ll_b_mean   = ll_vec.mean()
@@ -278,8 +278,9 @@ def train_gp_lvm_ssvi(config: GPSSVIConfig, Y: torch.Tensor, init_latents_z_dict
         if t % 25 == 0 or t == 1:
             with torch.no_grad():
                 U_smpls_full = sample_U_batch(m_u, C_u, NUM_U_SAMPLES)
+                full_idx = torch.arange(N, device=DEV)
                 elbo_vec, ll_vec, klx_vec, *_ = vmap(
-                    lambda u: local_step(idx=torch.arange(N, device=DEV), U_sample=u, Sigma_det=Sigma_u(C_u), update_beta=False, mu_x=mu_x, log_s2x=log_s2x, Y=Y, K_inv=K_inv, noise_var=noise_var, log_sf2=log_sf2, log_alpha=log_alpha, Z=Z, DEV=DEV)
+                    lambda u: local_step(idx=full_idx, U_sample=u, Sigma_det=Sigma_u(C_u), update_beta=False, mu_x_batch=mu_x[full_idx], log_s2x_batch=log_s2x[full_idx], Y=Y, K_inv=K_inv, noise_var=noise_var, log_sf2=log_sf2, log_alpha=log_alpha, Z=Z, DEV=DEV)
                 )(U_smpls_full) 
                 local_elbo_full_n_mean = elbo_vec.mean()
                 LL_full   = (ll_vec.mean()  * N).item()
